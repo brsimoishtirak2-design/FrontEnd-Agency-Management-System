@@ -18,20 +18,24 @@ class AdminTasksRepository {
 
   /// GET /api/admin/tasks
   ///
-  /// Returns ALL tasks across the agency. Backend supports ?status=...
-  /// and ?search=... query params (search is LIKE against title OR
-  /// description). Response is Laravel paginator { data:[...], ... }.
+  /// Returns tasks across the agency. Backend supports ?status=...,
+  /// ?search=... (LIKE against title OR description), and
+  /// ?include_completed=1 (otherwise the backend's active() scope
+  /// hides Approved and Cancelled when no status filter is provided).
+  /// Response is Laravel paginator { data:[...], ... }.
   ///
   /// For now we just fetch page 1 (per_page=20). The agency has <20 tasks,
   /// so this is sufficient. Add pagination once we need it.
   Future<List<Task>> listAllTasks({
     TaskStatus? statusFilter,
     String? search,
+    bool includeCompleted = false,
   }) async {
     final query = <String, dynamic>{};
     if (statusFilter != null) query['status'] = statusFilter.wireValue;
     final trimmedSearch = search?.trim() ?? '';
     if (trimmedSearch.isNotEmpty) query['search'] = trimmedSearch;
+    if (includeCompleted) query['include_completed'] = 1;
 
     final response = await _api.get<Map<String, dynamic>>(
       '/admin/tasks',

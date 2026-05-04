@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_exception.dart';
 import '../../../shared/models/agency_client.dart';
@@ -107,6 +109,31 @@ class AdminClientsRepository {
   /// No dedicated reactivate endpoint; the regular update handles it.
   Future<AgencyClient> reactivateClient(int id) async {
     return updateClient(id, {'status': 'active'});
+  }
+
+  /// POST /api/admin/clients/{id}/logo
+  ///
+  /// Multipart upload of a client logo. Backend accepts jpg/png/webp/svg
+  /// up to 2MB and replaces any existing logo. Returns the updated client
+  /// (with the new `logo` URL set).
+  Future<AgencyClient> uploadClientLogo({
+    required int clientId,
+    required String filePath,
+  }) async {
+    final formData = FormData.fromMap({
+      'logo': await MultipartFile.fromFile(filePath),
+    });
+
+    final response = await _api.post<Map<String, dynamic>>(
+      '/admin/clients/$clientId/logo',
+      data: formData,
+    );
+    final body = response.data;
+    if (body == null) {
+      throw const ApiException(message: 'Empty response from server.');
+    }
+    final clientJson = (body['data'] ?? body) as Map<String, dynamic>;
+    return AgencyClient.fromJson(clientJson);
   }
 
   // ========================================================================

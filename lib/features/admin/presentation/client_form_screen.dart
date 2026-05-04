@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,6 +45,11 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   final _tiktokController = TextEditingController();
 
   bool _isSubmitting = false;
+  /// Local file path of a freshly picked logo waiting to be uploaded
+  /// after the client save succeeds. Null when the user hasn't picked
+  /// a new image (the existing logo URL on `widget.initialClient.logo`
+  /// is what's shown in that case).
+  String? _pickedLogoPath;
 
   @override
   void initState() {
@@ -80,6 +88,22 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
     if (_isSubmitting) return false;
     if (_nameController.text.trim().isEmpty) return false;
     return true;
+  }
+
+  Future<void> _pickLogo() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: false,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final path = result.files.first.path;
+    if (path == null) return;
+    setState(() => _pickedLogoPath = path);
+  }
+
+  void _clearPickedLogo() {
+    setState(() => _pickedLogoPath = null);
   }
 
   String? _validateWebsite(String? v) {
@@ -135,8 +159,19 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
           notes: trimOrNull(_notesController),
         );
 
-        final updated =
+        var updated =
             await repo.updateClient(initial.id, draft.toJsonForUpdate());
+
+        // Upload the new logo file (if the user picked one) on top of
+        // the just-saved client. Failures here surface as a snackbar
+        // but the client save itself stays committed.
+        final pickedLogo = _pickedLogoPath;
+        if (pickedLogo != null) {
+          updated = await repo.uploadClientLogo(
+            clientId: updated.id,
+            filePath: pickedLogo,
+          );
+        }
 
         ref.invalidate(adminClientsListProvider);
         ref.invalidate(adminClientWithBranchesProvider(initial.id));
@@ -166,7 +201,18 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
           notes: trimOrNull(_notesController),
         );
 
-        final newClient = await repo.createClient(draft);
+        var newClient = await repo.createClient(draft);
+
+        // Upload the picked logo (if any) on the freshly created
+        // client. We don't roll back the create on logo failure; the
+        // user can re-try via Edit.
+        final pickedLogo = _pickedLogoPath;
+        if (pickedLogo != null) {
+          newClient = await repo.uploadClientLogo(
+            clientId: newClient.id,
+            filePath: pickedLogo,
+          );
+        }
 
         ref.invalidate(adminClientsListProvider);
 
@@ -232,6 +278,18 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // ----- Logo (optional) -----
+                Center(
+                  child: _LogoPicker(
+                    pickedFilePath: _pickedLogoPath,
+                    existingUrl: widget.initialClient?.logo,
+                    onPick: _isSubmitting ? null : _pickLogo,
+                    onClearPicked:
+                        _isSubmitting ? null : _clearPickedLogo,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
                 // ----- Identity -----
                 AppSectionLabel('Name *'),
                 const SizedBox(height: 6),
@@ -354,6 +412,106 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Circular logo preview + tap-to-pick / change / remove controls.
+///
+/// Display priority:
+///   1. A freshly-picked file (`pickedFilePath`) — shown via FileImage.
+///   2. Otherwise the existing `existingUrl` on the client — NetworkImage.
+///   3. Otherwise a placeholder (camera icon) inviting the user to add one.
+class _LogoPicker extends StatelessWidget {
+  final String? pickedFilePath;
+  final String? existingUrl;
+  final VoidCallback? onPick;
+  final VoidCallback? onClearPicked;
+
+  const _LogoPicker({
+    required this.pickedFilePath,
+    required this.existingUrl,
+    required this.onPick,
+    required this.onClearPicked,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPicked = pickedFilePath != null;
+    final hasExisting = existingUrl != null && existingUrl!.isNotEmpty;
+    final hasAny = hasPicked || hasExisting;
+
+    Widget avatar;
+    if (hasPicked) {
+      avatar = CircleAvatar(
+        radius: 48,
+        backgroundColor: AppTheme.slate100,
+        backgroundImage: FileImage(File(pickedFilePath!)),
+      );
+    } else if (hasExisting) {
+      avatar = CircleAvatar(
+        radius: 48,
+        backgroundColor: AppTheme.slate100,
+        backgroundImage: NetworkImage(existingUrl!),
+        onBackgroundImageError: (_, _) {},
+      );
+    } else {
+      avatar = Container(
+        width: 96,
+        height: 96,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppTheme.slate100,
+          border: Border.all(
+            color: AppTheme.slate200,
+            width: 1.5,
+            strokeAlign: BorderSide.strokeAlignInside,
+          ),
+        ),
+        child: Icon(
+          Icons.add_a_photo_outlined,
+          color: AppTheme.slate500,
+          size: 28,
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        InkWell(
+          onTap: onPick,
+          customBorder: const CircleBorder(),
+          child: avatar,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton.icon(
+              onPressed: onPick,
+              icon: const Icon(Icons.image_outlined, size: 16),
+              label: Text(hasAny ? 'Change logo' : 'Add logo'),
+            ),
+            if (hasPicked) ...[
+              const SizedBox(width: 4),
+              TextButton.icon(
+                onPressed: onClearPicked,
+                icon: const Icon(Icons.close, size: 16),
+                label: const Text('Cancel'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.slate500,
+                ),
+              ),
+            ],
+          ],
+        ),
+        Text(
+          'Optional · JPG / PNG / WEBP / SVG · max 2 MB',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppTheme.slate500,
+              ),
+        ),
+      ],
     );
   }
 }

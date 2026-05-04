@@ -14,6 +14,7 @@ import '../../../shared/models/task_status.dart';
 import '../../../shared/widgets/app_section_label.dart';
 import '../../../shared/widgets/task_priority_chip.dart';
 import '../../../shared/widgets/task_status_badge.dart';
+import '../../../shared/widgets/client_avatar.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/comments_providers.dart';
 import '../data/tasks_providers.dart';
@@ -396,18 +397,10 @@ class _ClientCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppTheme.brandPrimary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                Icons.business_outlined,
-                color: AppTheme.brandPrimaryDark,
-                size: 22,
-              ),
+            ClientAvatar(
+              name: clientName,
+              logoUrl: task.client?.logo,
+              radius: 22,
             ),
             const SizedBox(width: 12),
             Expanded(

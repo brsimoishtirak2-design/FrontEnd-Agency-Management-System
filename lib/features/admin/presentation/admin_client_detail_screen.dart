@@ -278,6 +278,7 @@ class _HeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final branchCount =
         client.branches?.length ?? client.branchesCount ?? 0;
+    final hasLogo = client.logo != null && client.logo!.isNotEmpty;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -285,7 +286,17 @@ class _HeaderCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (hasLogo) ...[
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: AppTheme.slate100,
+                    backgroundImage: NetworkImage(client.logo!),
+                    onBackgroundImageError: (_, _) {},
+                  ),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: Text(
                     client.name,

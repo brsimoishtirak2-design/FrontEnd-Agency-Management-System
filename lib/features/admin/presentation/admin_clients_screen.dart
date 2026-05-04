@@ -7,6 +7,7 @@ import 'package:skeletonizer/skeletonizer.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/models/agency_client.dart';
+import '../../../shared/utils/initials.dart';
 import '../../../shared/widgets/app_empty_state.dart';
 import '../../../shared/widgets/app_enter.dart';
 import '../../../shared/widgets/app_error_state.dart';
@@ -170,6 +171,7 @@ class _ClientsScroll extends StatelessWidget {
                     AppRoute.adminClientDetailPath(client.id),
                   ),
                   dimmed: client.isArchived,
+                  leading: _ClientAvatar(client: client),
                   title: Text(
                     client.name,
                     maxLines: 1,
@@ -234,6 +236,33 @@ class _FilterRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Small circular avatar for a client list row. Renders the logo when
+/// present, otherwise the client name's initials on a slate background.
+class _ClientAvatar extends StatelessWidget {
+  final AgencyClient client;
+  const _ClientAvatar({required this.client});
+
+  @override
+  Widget build(BuildContext context) {
+    final hasLogo = client.logo != null && client.logo!.isNotEmpty;
+    return CircleAvatar(
+      radius: 18,
+      backgroundColor: AppTheme.slate100,
+      backgroundImage: hasLogo ? NetworkImage(client.logo!) : null,
+      onBackgroundImageError: hasLogo ? (_, _) {} : null,
+      child: hasLogo
+          ? null
+          : Text(
+              nameInitials(client.name),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppTheme.slate700,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
     );
   }
 }

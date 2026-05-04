@@ -16,10 +16,8 @@ import '../../../shared/widgets/app_enter.dart';
 import '../../../shared/widgets/app_error_state.dart';
 import '../../../shared/widgets/app_list_panel.dart';
 import '../../../shared/widgets/app_list_row.dart';
-import '../../../shared/widgets/app_status_pill.dart';
+import '../../../shared/widgets/client_avatar.dart';
 import '../../../shared/widgets/task_priority_chip.dart';
-import '../../../shared/widgets/task_status_badge.dart';
-import '../../auth/data/auth_providers.dart';
 import '../data/tasks_providers.dart';
 
 /// Home screen — shows the current user's task list.
@@ -48,10 +46,7 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authStateProvider);
     final tasksAsync = ref.watch(myTasksProvider);
-    final user =
-        (authState is AuthAuthenticated) ? authState.user : null;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -64,10 +59,7 @@ class HomeScreen extends ConsumerWidget {
         child: tasksAsync.when(
           loading: () => Skeletonizer(
             enabled: true,
-            child: _MyTasksPanel(
-              tasks: _skeletonRows,
-              currentUserId: null,
-            ),
+            child: _MyTasksPanel(tasks: _skeletonRows),
           ),
           error: (error, _) => ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -94,10 +86,7 @@ class HomeScreen extends ConsumerWidget {
               );
             }
             return AppEnter(
-              child: _MyTasksPanel(
-                tasks: tasks,
-                currentUserId: user?.id,
-              ),
+              child: _MyTasksPanel(tasks: tasks),
             );
           },
         ),
@@ -108,12 +97,8 @@ class HomeScreen extends ConsumerWidget {
 
 class _MyTasksPanel extends StatelessWidget {
   final List<Task> tasks;
-  final int? currentUserId;
 
-  const _MyTasksPanel({
-    required this.tasks,
-    required this.currentUserId,
-  });
+  const _MyTasksPanel({required this.tasks});
 
   @override
   Widget build(BuildContext context) {
@@ -131,11 +116,13 @@ class _MyTasksPanel extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final task = tasks[index];
-            final isLeader = currentUserId != null &&
-                task.isLeaderUser(currentUserId!);
             return AppListRow(
               onTap: () =>
                   context.push(AppRoute.taskDetailPath(task.id)),
+              leading: ClientAvatar(
+                name: task.client?.name ?? task.clientDisplayName,
+                logoUrl: task.client?.logo,
+              ),
               title: Text(
                 task.title,
                 maxLines: 2,
@@ -146,15 +133,9 @@ class _MyTasksPanel extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              meta: Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  if (isLeader) AppStatusPill.brand('Leader'),
-                  TaskPriorityChip(priority: task.priority),
-                  TaskStatusBadge(status: task.status),
-                ],
-              ),
+              // Leader pill and Status badge are only shown on the
+              // detail screen — keep the list compact and easy to scan.
+              meta: TaskPriorityChip(priority: task.priority),
               trailing: const Icon(
                 LucideIcons.chevronRight,
                 color: AppTheme.slate300,

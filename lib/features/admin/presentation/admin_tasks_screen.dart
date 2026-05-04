@@ -16,6 +16,7 @@ import '../../../shared/widgets/app_enter.dart';
 import '../../../shared/widgets/app_error_state.dart';
 import '../../../shared/widgets/app_list_panel.dart';
 import '../../../shared/widgets/app_list_row.dart';
+import '../../../shared/widgets/client_avatar.dart';
 import '../../../shared/widgets/filter_chips_row.dart';
 import '../../../shared/widgets/task_priority_chip.dart';
 import '../../../shared/widgets/task_status_badge.dart';
@@ -244,6 +245,10 @@ class _TasksPanel extends StatelessWidget {
             return AppListRow(
               onTap: () =>
                   context.push(AppRoute.taskDetailPath(task.id)),
+              leading: ClientAvatar(
+                name: task.client?.name ?? task.clientDisplayName,
+                logoUrl: task.client?.logo,
+              ),
               title: Text(
                 task.title,
                 maxLines: 2,

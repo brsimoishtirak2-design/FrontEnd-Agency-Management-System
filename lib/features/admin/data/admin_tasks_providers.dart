@@ -86,7 +86,14 @@ final adminTaskStatusCountsProvider =
     FutureProvider<Map<TaskStatus, int>>((ref) async {
   final filters = ref.watch(adminTasksFiltersProvider);
   final repo = ref.watch(adminTasksRepositoryProvider);
-  final tasks = await repo.listAllTasks(search: filters.search);
+  // includeCompleted: true so Approved + Cancelled tasks are present
+  // in the count; otherwise the backend's active() scope hides them
+  // when no explicit status filter is set, and the chips would always
+  // show 0 for completed states.
+  final tasks = await repo.listAllTasks(
+    search: filters.search,
+    includeCompleted: true,
+  );
   final counts = <TaskStatus, int>{
     for (final s in TaskStatus.values) s: 0,
   };
