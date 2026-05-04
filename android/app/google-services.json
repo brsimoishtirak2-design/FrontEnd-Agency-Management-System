@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "255513199700",
+    "project_id": "agency-management-system-ccd02",
+    "storage_bucket": "agency-management-system-ccd02.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:255513199700:android:b076689ca82cf7520899c1",
+        "android_client_info": {
+          "package_name": "com.brsimo.agencymanagement.agency_management"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA7ObtVvrR09ZOUMCEtHOouxfpFypB5JXM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
