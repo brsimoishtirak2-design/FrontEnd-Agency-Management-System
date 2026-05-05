@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/admin/data/admin_tasks_providers.dart';
 import '../../features/auth/data/auth_providers.dart';
+import '../../features/notifications/data/notifications_providers.dart';
 import '../../features/tasks/data/attachments_providers.dart';
 import '../../features/tasks/data/comments_providers.dart';
 import '../../features/tasks/data/tasks_providers.dart';
@@ -89,6 +90,8 @@ class _FcmHandlersState extends ConsumerState<FcmHandlers>
     ref.invalidate(myTasksProvider);
     ref.invalidate(adminAllTasksProvider);
     ref.invalidate(taskDetailProvider);
+    ref.invalidate(notificationsListProvider);
+    ref.invalidate(unreadNotificationsCountProvider);
   }
 
   Future<void> _checkInitialMessage() async {
@@ -157,6 +160,12 @@ class _FcmHandlersState extends ConsumerState<FcmHandlers>
   ///
   /// Set of types is kept in sync with the backend's NotificationService.
   void _refreshFor(String? type, int? taskId) {
+    // Every push corresponds to a new row in the inbox — bump the
+    // unread count and refresh the list so the bell badge ticks up
+    // and the inbox screen (if open) shows the new entry.
+    ref.invalidate(unreadNotificationsCountProvider);
+    ref.invalidate(notificationsListProvider);
+
     const taskStateTypes = {
       'task_assigned',
       'task_started',

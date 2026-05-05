@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/notifications_bell_button.dart';
 import '../../auth/data/auth_providers.dart';
 import 'employee_profile_screen.dart';
 import 'home_screen.dart';
@@ -43,6 +44,7 @@ class _EmployeeShellScreenState extends ConsumerState<EmployeeShellScreen> {
               ? (firstName.isEmpty ? 'My Tasks' : 'Hi, $firstName')
               : 'Profile',
         ),
+        actions: const [NotificationsBellButton()],
       ),
       body: IndexedStack(
         index: _currentIndex,

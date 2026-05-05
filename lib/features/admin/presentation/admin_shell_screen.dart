@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/notifications_bell_button.dart';
 import '../../../shared/widgets/profile_avatar_button.dart';
 import '../../../shared/widgets/search_app_bar.dart';
 import '../../auth/data/auth_providers.dart';
@@ -74,7 +75,10 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
         hintText: 'Search tasks by title or description',
         query: filters.search,
         onChanged: _onTaskSearchChanged,
-        actions: const [ProfileAvatarButton()],
+        actions: const [
+          NotificationsBellButton(),
+          ProfileAvatarButton(),
+        ],
       );
     }
 

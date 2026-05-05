@@ -19,6 +19,7 @@ import '../../features/auth/data/auth_providers.dart';
 import '../../features/auth/presentation/change_password_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/profile/presentation/edit_profile_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/profile/presentation/reset_password_screen.dart';
@@ -128,6 +129,9 @@ class AppRoute {
   // [changePassword] above which is the forced first-login flow.
   // The reset flow does not require the current password.
   static const selfResetPassword = '/profile/reset-password';
+
+  // Notifications inbox (any authenticated user).
+  static const notifications = '/notifications';
 }
 
 /// Provides the global GoRouter, configured to react to auth state changes.
@@ -390,6 +394,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoute.selfResetPassword,
         builder: (context, state) => const ResetPasswordScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.notifications,
+        builder: (context, state) => const NotificationsScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
