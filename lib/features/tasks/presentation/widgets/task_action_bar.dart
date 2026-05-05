@@ -112,7 +112,7 @@ class _TaskActionBarState extends ConsumerState<TaskActionBar> {
           _AvailableAction(
             label: 'Start Task',
             icon: Icons.play_arrow_rounded,
-            color: AppTheme.brandPrimary,
+            color: AppTheme.success,
             kind: _ActionKind.start,
           ),
         ];
@@ -149,7 +149,7 @@ class _TaskActionBarState extends ConsumerState<TaskActionBar> {
             _AvailableAction(
               label: 'Start Task',
               icon: Icons.play_arrow_rounded,
-              color: AppTheme.brandPrimary,
+              color: AppTheme.info,
               kind: _ActionKind.start,
             ),
         ];

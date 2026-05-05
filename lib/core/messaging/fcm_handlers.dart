@@ -5,10 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/admin/data/admin_tasks_providers.dart';
 import '../../features/auth/data/auth_providers.dart';
 import '../../features/tasks/data/comments_providers.dart';
+import '../../features/tasks/data/tasks_providers.dart';
 import '../router/app_router.dart';
-import '../theme/app_theme.dart';
+import 'in_app_notification.dart';
 
 /// Mounts FCM message handlers at the root of the widget tree.
 ///
@@ -80,12 +82,9 @@ class _FcmHandlersState extends ConsumerState<FcmHandlers> {
     final taskId = _parseTaskId(message);
     final type = message.data['type']?.toString();
 
-    // For comment notifications: invalidate the comments provider for
-    // that task so any open comments screen pulls the new message
-    // immediately without a manual refresh.
-    if (taskId != null && type == 'comment_posted') {
-      ref.invalidate(taskCommentsProvider(taskId));
-    }
+    // Refresh the relevant Riverpod caches so any open list / detail
+    // reflects the change without forcing the user to pull-to-refresh.
+    _refreshFor(type, taskId);
 
     // Don't show a redundant snackbar when the user is already viewing
     // the chat for the same task — the list itself updates. The
@@ -97,24 +96,16 @@ class _FcmHandlersState extends ConsumerState<FcmHandlers> {
       return;
     }
 
-    final messenger = _scaffoldMessenger;
-    if (messenger == null) return;
-
-    messenger.clearSnackBars();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(title, maxLines: 2, overflow: TextOverflow.ellipsis),
-        backgroundColor: AppTheme.brandPrimaryDark,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 5),
-        action: taskId == null
-            ? null
-            : SnackBarAction(
-                label: 'View',
-                textColor: Colors.white,
-                onPressed: () => _routeForMessage(message, taskId),
-              ),
-      ),
+    final router = ref.read(routerProvider);
+    if (kDebugMode) {
+      debugPrint('FCM foreground → showing in-app banner: "$title"');
+    }
+    InAppNotification.show(
+      navigatorKey: router.routerDelegate.navigatorKey,
+      title: title,
+      onTap: taskId == null ? null : () => _routeForMessage(message, taskId),
+      actionLabel: taskId == null ? null : 'View',
+      onAction: taskId == null ? null : () => _routeForMessage(message, taskId),
     );
   }
 
@@ -126,6 +117,36 @@ class _FcmHandlersState extends ConsumerState<FcmHandlers> {
     final taskId = _parseTaskId(message);
     if (taskId == null) return;
     _routeForMessage(message, taskId);
+  }
+
+  /// Invalidate any provider that could be stale after a push of the
+  /// given [type]. Task-state pushes invalidate the lists (and the
+  /// open task detail if applicable); comment pushes invalidate the
+  /// comments stream for that task.
+  ///
+  /// Set of types is kept in sync with the backend's NotificationService.
+  void _refreshFor(String? type, int? taskId) {
+    const taskStateTypes = {
+      'task_assigned',
+      'task_started',
+      'task_submitted',
+      'changes_requested',
+      'task_approved',
+      'task_cancelled',
+    };
+
+    if (type != null && taskStateTypes.contains(type)) {
+      ref.invalidate(myTasksProvider);
+      ref.invalidate(adminAllTasksProvider);
+      if (taskId != null) {
+        ref.invalidate(taskDetailProvider(taskId));
+      }
+      return;
+    }
+
+    if (type == 'comment_posted' && taskId != null) {
+      ref.invalidate(taskCommentsProvider(taskId));
+    }
   }
 
   /// Pick the right destination based on the notification's `type` field.
@@ -166,21 +187,6 @@ class _FcmHandlersState extends ConsumerState<FcmHandlers> {
       debugPrint('FCM: navigating to $path');
     }
     router.push(path);
-  }
-
-  /// Reach the global ScaffoldMessenger via the app's NavigatorState.
-  /// Returns null if no scaffold context is available yet (very early
-  /// in app start) — caller bails gracefully.
-  ScaffoldMessengerState? get _scaffoldMessenger {
-    final ctx = _rootContext;
-    if (ctx == null) return null;
-    return ScaffoldMessenger.maybeOf(ctx);
-  }
-
-  BuildContext? get _rootContext {
-    // The router exposes the most recent BuildContext via its routerDelegate.
-    final router = ref.read(routerProvider);
-    return router.routerDelegate.navigatorKey.currentContext;
   }
 
   @override

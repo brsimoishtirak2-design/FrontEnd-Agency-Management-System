@@ -58,6 +58,10 @@ class _TaskCommentsScreenState
   /// AsyncValue.loading states (where prev/next .value would be null).
   int _lastKnownLength = 0;
 
+  /// Cached notifier reference. Held so dispose() can clear the active
+  /// marker without going through `ref` (ref is invalid post-dispose).
+  StateController<int?>? _activeMarker;
+
   @override
   void initState() {
     super.initState();
@@ -72,11 +76,12 @@ class _TaskCommentsScreenState
     // first frame has rendered with data.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final marker = ref.read(activeCommentsTaskProvider.notifier);
+      _activeMarker = marker;
       ref
           .read(commentsLastSeenProvider.notifier)
           .markSeen(widget.taskId);
-      ref.read(activeCommentsTaskProvider.notifier).state =
-          widget.taskId;
+      marker.state = widget.taskId;
       _scrollToBottomSoon();
     });
   }
@@ -85,12 +90,12 @@ class _TaskCommentsScreenState
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
-    // Clear the active-chat marker only if it still points at us;
-    // otherwise we'd accidentally clear another open chat's marker
-    // during a fast back-and-forth navigation.
-    final active = ref.read(activeCommentsTaskProvider);
-    if (active == widget.taskId) {
-      ref.read(activeCommentsTaskProvider.notifier).state = null;
+    // Use the cached notifier — calling ref.read() after dispose throws.
+    // Only clear if the marker still points at us (a fast back-and-forth
+    // could have already moved it to another chat).
+    final marker = _activeMarker;
+    if (marker != null && marker.state == widget.taskId) {
+      marker.state = null;
     }
     _composeController.dispose();
     _scrollController.dispose();

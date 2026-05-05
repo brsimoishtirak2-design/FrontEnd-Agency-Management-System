@@ -17,7 +17,6 @@ import '../../../shared/widgets/app_error_state.dart';
 import '../../../shared/widgets/app_list_panel.dart';
 import '../../../shared/widgets/app_list_row.dart';
 import '../../../shared/widgets/client_avatar.dart';
-import '../../../shared/widgets/task_priority_chip.dart';
 import '../data/tasks_providers.dart';
 
 /// Home screen — shows the current user's task list.
@@ -133,9 +132,6 @@ class _MyTasksPanel extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              // Leader pill and Status badge are only shown on the
-              // detail screen — keep the list compact and easy to scan.
-              meta: TaskPriorityChip(priority: task.priority),
               trailing: const Icon(
                 LucideIcons.chevronRight,
                 color: AppTheme.slate300,

@@ -35,9 +35,14 @@ class TaskDetailScreen extends ConsumerWidget {
     final userId =
         (authState is AuthAuthenticated) ? authState.user.id : null;
 
+    final title = taskAsync.maybeWhen(
+      data: (task) => task.client?.name ?? task.title,
+      orElse: () => 'Task Detail',
+    );
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Task Detail'),
+        title: Text(title, overflow: TextOverflow.ellipsis),
       ),
       body: taskAsync.when(
         loading: () => const Center(
