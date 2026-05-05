@@ -34,10 +34,17 @@ class FcmHandlers extends ConsumerStatefulWidget {
   ConsumerState<FcmHandlers> createState() => _FcmHandlersState();
 }
 
-class _FcmHandlersState extends ConsumerState<FcmHandlers> {
+class _FcmHandlersState extends ConsumerState<FcmHandlers>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+
+    // The lifecycle observer is registered on every platform — even if FCM
+    // is not available (macOS / web), we still want to refresh task lists
+    // when the app comes back from background, since data could have
+    // changed via another device or admin action.
+    WidgetsBinding.instance.addObserver(this);
 
     // FCM handlers are only valid on platforms where Firebase.initializeApp
     // ran in main() — currently iOS and Android. Tests, web, macOS, and
@@ -58,6 +65,29 @@ class _FcmHandlersState extends ConsumerState<FcmHandlers> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkInitialMessage();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// When the app returns to the foreground from background, refresh the
+  /// task caches. Background FCM messages don't fire `onMessage`, so a
+  /// task that was assigned / cancelled / updated while we were paused
+  /// would otherwise stay stale until the user manually refreshed.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final auth = ref.read(authStateProvider);
+    if (auth is! AuthAuthenticated) return;
+    if (kDebugMode) {
+      debugPrint('Lifecycle resumed → refreshing task caches.');
+    }
+    ref.invalidate(myTasksProvider);
+    ref.invalidate(adminAllTasksProvider);
+    ref.invalidate(taskDetailProvider);
   }
 
   Future<void> _checkInitialMessage() async {
