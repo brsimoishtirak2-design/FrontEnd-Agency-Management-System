@@ -159,6 +159,19 @@ class AuthStateNotifier extends StateNotifier<AuthState> {
     return user;
   }
 
+  /// Replace the cached user with one returned by another endpoint
+  /// (e.g. profile photo upload). Avoids a redundant /me round-trip
+  /// when the calling endpoint already returned a refreshed user.
+  /// No-op unless we're currently authenticated.
+  void replaceUser(User user) {
+    final current = state;
+    if (current is AuthAuthenticated) {
+      state = AuthAuthenticated(user);
+    } else if (current is AuthPasswordChangeRequired) {
+      state = AuthPasswordChangeRequired(user);
+    }
+  }
+
   /// Logout — clears tokens and returns to unauthenticated.
   Future<void> logout() async {
     state = const AuthLoading();

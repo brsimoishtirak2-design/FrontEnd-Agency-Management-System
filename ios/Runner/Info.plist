@@ -46,7 +46,9 @@
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>NSPhotoLibraryUsageDescription</key>
-		<string>This app needs access to your photo library to attach images to task submissions.</string>
+		<string>This app needs access to your photo library to set your profile photo and attach images to task submissions.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>This app needs access to your camera so you can take a profile photo.</string>
 		<key>NSDocumentsFolderUsageDescription</key>
 		<string>This app needs access to your documents to attach files to task submissions.</string>
 		<key>UIStatusBarHidden</key>

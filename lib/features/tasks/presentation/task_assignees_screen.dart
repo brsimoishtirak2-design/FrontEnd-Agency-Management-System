@@ -5,8 +5,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/models/task.dart';
 import '../../../shared/models/task_assignment.dart';
 import '../../../shared/utils/date_format.dart';
-import '../../../shared/utils/initials.dart';
 import '../../../shared/widgets/app_status_pill.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../data/tasks_providers.dart';
 
 /// Read-only assignees list for a single task. Pushed from the task
@@ -201,21 +201,15 @@ class _AssigneeTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          CircleAvatar(
+          UserAvatar(
+            name: name,
+            photoUrl: assignment.userProfilePhoto,
             radius: 20,
             backgroundColor: muted
                 ? AppTheme.slate100
                 : AppTheme.brandPrimary.withValues(alpha: 0.12),
-            child: Text(
-              nameInitials(name),
-              style: TextStyle(
-                color: muted
-                    ? AppTheme.slate500
-                    : AppTheme.brandPrimaryDark,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
+            foregroundColor:
+                muted ? AppTheme.slate500 : AppTheme.brandPrimaryDark,
           ),
           const SizedBox(width: 12),
           Expanded(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/agency_user.dart';
+import '../../../../shared/widgets/user_avatar.dart';
 import '../../data/admin_users_providers.dart';
 
 /// Bottom-sheet picker for selecting assignees.
@@ -421,16 +422,10 @@ class _UserRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            CircleAvatar(
+            UserAvatar(
+              name: user.name,
+              photoUrl: user.profilePhoto,
               radius: 18,
-              backgroundColor: AppTheme.slate100,
-              child: Text(
-                user.initials,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppTheme.slate700,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
             ),
             const SizedBox(width: 12),
             Expanded(

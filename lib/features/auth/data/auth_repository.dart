@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_exception.dart';
 import '../../../core/storage/secure_storage_service.dart';
@@ -88,6 +90,45 @@ class AuthRepository {
     }
 
     // Same {user: {...}} envelope as GET /auth/me.
+    final userJson =
+        (data['user'] ?? data['data'] ?? data) as Map<String, dynamic>;
+    return User.fromJson(userJson);
+  }
+
+  /// POST /api/auth/me/photo (multipart)
+  ///
+  /// Uploads a new profile photo for the current user. Backend deletes
+  /// the previous photo if any and returns the refreshed user.
+  Future<User> uploadProfilePhoto(String filePath) async {
+    final formData = FormData.fromMap({
+      'photo': await MultipartFile.fromFile(filePath),
+    });
+
+    final response = await _api.post<Map<String, dynamic>>(
+      '/auth/me/photo',
+      data: formData,
+    );
+
+    final data = response.data;
+    if (data == null) {
+      throw const ApiException(message: 'Empty response from server.');
+    }
+    final userJson =
+        (data['user'] ?? data['data'] ?? data) as Map<String, dynamic>;
+    return User.fromJson(userJson);
+  }
+
+  /// DELETE /api/auth/me/photo
+  ///
+  /// Removes the current user's profile photo. Idempotent — safe to
+  /// call even if no photo was set.
+  Future<User> deleteProfilePhoto() async {
+    final response = await _api.delete<Map<String, dynamic>>('/auth/me/photo');
+
+    final data = response.data;
+    if (data == null) {
+      throw const ApiException(message: 'Empty response from server.');
+    }
     final userJson =
         (data['user'] ?? data['data'] ?? data) as Map<String, dynamic>;
     return User.fromJson(userJson);

@@ -5,7 +5,7 @@ import '../../../../core/api/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/comment.dart';
 import '../../../../shared/utils/date_format.dart';
-import '../../../../shared/utils/initials.dart';
+import '../../../../shared/widgets/user_avatar.dart';
 import '../../../auth/data/auth_providers.dart';
 import '../../data/comments_providers.dart';
 
@@ -241,16 +241,10 @@ class _CommentItem extends ConsumerWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
+          UserAvatar(
+            name: comment.userName,
+            photoUrl: comment.userProfilePhoto,
             radius: 16,
-            backgroundColor: AppTheme.slate100,
-            child: Text(
-              nameInitials(comment.userName),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppTheme.slate700,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
           ),
           const SizedBox(width: 10),
           Expanded(

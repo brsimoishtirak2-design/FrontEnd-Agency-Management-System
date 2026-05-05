@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../core/api/api_exception.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/models/user.dart';
 import '../../../shared/utils/date_format.dart';
 import '../../../shared/widgets/app_section_label.dart';
 import '../../../shared/widgets/app_status_pill.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../../auth/data/auth_providers.dart';
 
 /// Self-service profile screen.
@@ -129,28 +132,174 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 // Header card — avatar + name + role badge + email
 // ---------------------------------------------------------------------------
 
-class _HeaderCard extends StatelessWidget {
+class _HeaderCard extends ConsumerStatefulWidget {
   final User user;
   const _HeaderCard({required this.user});
 
   @override
+  ConsumerState<_HeaderCard> createState() => _HeaderCardState();
+}
+
+class _HeaderCardState extends ConsumerState<_HeaderCard> {
+  bool _isUploading = false;
+
+  Future<void> _changePhoto() async {
+    final action = await _pickAction();
+    if (action == null) return;
+
+    if (action == _PhotoAction.remove) {
+      await _runPhotoOp(() => ref
+          .read(authRepositoryProvider)
+          .deleteProfilePhoto());
+      return;
+    }
+
+    final source = action == _PhotoAction.camera
+        ? ImageSource.camera
+        : ImageSource.gallery;
+    final XFile? picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+
+    await _runPhotoOp(() => ref
+        .read(authRepositoryProvider)
+        .uploadProfilePhoto(picked.path));
+  }
+
+  Future<void> _runPhotoOp(Future<User> Function() op) async {
+    setState(() => _isUploading = true);
+    try {
+      final updated = await op();
+      ref.read(authStateProvider.notifier).replaceUser(updated);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Profile photo updated.'),
+          backgroundColor: AppTheme.success,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  Future<_PhotoAction?> _pickAction() async {
+    final hasPhoto =
+        widget.user.profilePhoto != null && widget.user.profilePhoto!.isNotEmpty;
+    return showModalBottomSheet<_PhotoAction>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.slate300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.of(sheetCtx).pop(_PhotoAction.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.of(sheetCtx).pop(_PhotoAction.camera),
+            ),
+            if (hasPhoto)
+              ListTile(
+                leading: const Icon(Icons.delete_outline,
+                    color: AppTheme.error),
+                title: const Text('Remove photo',
+                    style: TextStyle(color: AppTheme.error)),
+                onTap: () => Navigator.of(sheetCtx).pop(_PhotoAction.remove),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final user = widget.user;
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Column(
           children: [
-            CircleAvatar(
-              radius: 36,
-              backgroundColor: AppTheme.slate100,
-              child: Text(
-                user.initials,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.brandPrimaryDark,
+            Stack(
+              children: [
+                UserAvatar(
+                  name: user.name,
+                  photoUrl: user.profilePhoto,
+                  radius: 40,
+                  backgroundColor: AppTheme.slate100,
+                  foregroundColor: AppTheme.brandPrimaryDark,
                 ),
-              ),
+                if (_isUploading)
+                  const Positioned.fill(
+                    child: CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.black54,
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Material(
+                    color: AppTheme.brandPrimaryDark,
+                    shape: const CircleBorder(
+                      side: BorderSide(color: Colors.white, width: 2),
+                    ),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: _isUploading ? null : _changePhoto,
+                      child: const SizedBox(
+                        width: 30,
+                        height: 30,
+                        child: Icon(
+                          Icons.photo_camera_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 14),
             Text(
@@ -161,10 +310,6 @@ class _HeaderCard extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 6),
-            user.isAdmin
-                ? AppStatusPill.brand('Admin')
-                : AppStatusPill.neutral('Employee'),
-            const SizedBox(height: 8),
             Text(
               user.email,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -178,6 +323,8 @@ class _HeaderCard extends StatelessWidget {
     );
   }
 }
+
+enum _PhotoAction { gallery, camera, remove }
 
 // ---------------------------------------------------------------------------
 // Personal info card — name + phone, tap to push to EditProfileScreen

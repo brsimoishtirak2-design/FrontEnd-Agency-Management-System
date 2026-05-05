@@ -9,6 +9,7 @@ import '../../../shared/models/agency_user.dart';
 import '../../../shared/utils/date_format.dart';
 import '../../../shared/widgets/app_section_label.dart';
 import '../../../shared/widgets/app_status_pill.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/admin_users_providers.dart';
 
@@ -344,16 +345,10 @@ class _HeaderCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
+            UserAvatar(
+              name: user.name,
+              photoUrl: user.profilePhoto,
               radius: 28,
-              backgroundColor: AppTheme.slate100,
-              child: Text(
-                user.initials,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppTheme.slate700,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
             ),
             const SizedBox(width: 14),
             Expanded(

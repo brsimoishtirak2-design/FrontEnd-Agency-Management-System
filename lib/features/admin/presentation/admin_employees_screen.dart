@@ -13,6 +13,7 @@ import '../../../shared/widgets/app_error_state.dart';
 import '../../../shared/widgets/app_list_panel.dart';
 import '../../../shared/widgets/app_list_row.dart';
 import '../../../shared/widgets/app_status_pill.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../data/admin_users_providers.dart';
 
 /// Admin Employees tab — shows ALL users (admins + employees), with a
@@ -166,16 +167,10 @@ class _EmployeesScroll extends StatelessWidget {
                     AppRoute.adminEmployeeDetailPath(user.id),
                   ),
                   dimmed: !user.isActive,
-                  leading: CircleAvatar(
+                  leading: UserAvatar(
+                    name: user.name,
+                    photoUrl: user.profilePhoto,
                     radius: 18,
-                    backgroundColor: AppTheme.slate100,
-                    child: Text(
-                      user.initials,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: AppTheme.slate700,
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
                   ),
                   title: Text(
                     user.name,
