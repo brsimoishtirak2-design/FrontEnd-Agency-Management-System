@@ -39,6 +39,9 @@ class Task {
   final String? creatorName;
   final String? cancellerName;
 
+  // --- List-only "unseen" payload (null on detail responses) ---
+  final TaskUnseen? unseen;
+
   const Task({
     required this.id,
     required this.title,
@@ -65,6 +68,7 @@ class Task {
     required this.assignments,
     this.creatorName,
     this.cancellerName,
+    this.unseen,
   });
 
   factory Task.fromJson(Map<String, dynamic> json) {
@@ -110,6 +114,9 @@ class Task {
           .toList(),
       creatorName: creator?['name'] as String?,
       cancellerName: canceller?['name'] as String?,
+      unseen: json['unseen'] is Map<String, dynamic>
+          ? TaskUnseen.fromJson(json['unseen'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -136,4 +143,47 @@ class Task {
 
   /// Display-friendly client name (falls back to "—" when client missing).
   String get clientDisplayName => client?.name ?? '—';
+}
+
+/// Per-user, per-task "unseen" signal payload returned only on list
+/// endpoints. Drives the badges on the task list rows.
+///
+/// Backend canonical shape (`task.unseen`):
+/// {
+///   "is_unviewed": bool,         // user has never opened the task
+///   "unread_comments": int,      // not authored by user, since last view
+///   "has_new_brief": bool,       // not uploaded by user, since last view
+///   "has_new_submission": bool,  // not uploaded by user, since last view
+///   "was_updated": bool          // task fields edited since last view
+/// }
+class TaskUnseen {
+  final bool isUnviewed;
+  final int unreadComments;
+  final bool hasNewBrief;
+  final bool hasNewSubmission;
+  final bool wasUpdated;
+
+  const TaskUnseen({
+    required this.isUnviewed,
+    required this.unreadComments,
+    required this.hasNewBrief,
+    required this.hasNewSubmission,
+    required this.wasUpdated,
+  });
+
+  factory TaskUnseen.fromJson(Map<String, dynamic> json) => TaskUnseen(
+        isUnviewed: json['is_unviewed'] as bool? ?? false,
+        unreadComments: json['unread_comments'] as int? ?? 0,
+        hasNewBrief: json['has_new_brief'] as bool? ?? false,
+        hasNewSubmission: json['has_new_submission'] as bool? ?? false,
+        wasUpdated: json['was_updated'] as bool? ?? false,
+      );
+
+  /// True if the row should show ANY badge.
+  bool get hasAnySignal =>
+      isUnviewed ||
+      unreadComments > 0 ||
+      hasNewBrief ||
+      hasNewSubmission ||
+      wasUpdated;
 }

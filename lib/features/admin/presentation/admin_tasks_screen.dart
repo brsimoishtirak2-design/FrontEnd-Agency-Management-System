@@ -20,6 +20,7 @@ import '../../../shared/widgets/client_avatar.dart';
 import '../../../shared/widgets/filter_chips_row.dart';
 import '../../../shared/widgets/task_priority_chip.dart';
 import '../../../shared/widgets/task_status_badge.dart';
+import '../../../shared/widgets/task_unseen_badges.dart';
 import '../data/admin_tasks_providers.dart';
 
 /// Admin Tasks tab — shows ALL tasks across the agency.
@@ -267,9 +268,17 @@ class _TasksPanel extends StatelessWidget {
                   TaskStatusBadge(status: task.status),
                 ],
               ),
-              trailing: const Icon(
-                LucideIcons.chevronRight,
-                color: AppTheme.slate300,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TaskUnseenBadges(unseen: task.unseen),
+                  if (task.unseen?.hasAnySignal ?? false)
+                    const SizedBox(width: 8),
+                  const Icon(
+                    LucideIcons.chevronRight,
+                    color: AppTheme.slate300,
+                  ),
+                ],
               ),
             );
           },

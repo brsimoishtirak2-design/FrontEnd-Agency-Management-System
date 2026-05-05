@@ -17,6 +17,7 @@ import '../../../shared/widgets/app_error_state.dart';
 import '../../../shared/widgets/app_list_panel.dart';
 import '../../../shared/widgets/app_list_row.dart';
 import '../../../shared/widgets/client_avatar.dart';
+import '../../../shared/widgets/task_unseen_badges.dart';
 import '../data/tasks_providers.dart';
 
 /// Home screen — shows the current user's task list.
@@ -132,9 +133,17 @@ class _MyTasksPanel extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              trailing: const Icon(
-                LucideIcons.chevronRight,
-                color: AppTheme.slate300,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TaskUnseenBadges(unseen: task.unseen),
+                  if (task.unseen?.hasAnySignal ?? false)
+                    const SizedBox(width: 8),
+                  const Icon(
+                    LucideIcons.chevronRight,
+                    color: AppTheme.slate300,
+                  ),
+                ],
               ),
             );
           },

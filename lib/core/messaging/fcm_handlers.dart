@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/admin/data/admin_tasks_providers.dart';
 import '../../features/auth/data/auth_providers.dart';
+import '../../features/tasks/data/attachments_providers.dart';
 import '../../features/tasks/data/comments_providers.dart';
 import '../../features/tasks/data/tasks_providers.dart';
 import '../router/app_router.dart';
@@ -163,6 +164,7 @@ class _FcmHandlersState extends ConsumerState<FcmHandlers>
       'changes_requested',
       'task_approved',
       'task_cancelled',
+      'task_updated',
     };
 
     if (type != null && taskStateTypes.contains(type)) {
@@ -174,8 +176,36 @@ class _FcmHandlersState extends ConsumerState<FcmHandlers>
       return;
     }
 
+    // For pushes that change "unseen" signals on the task list rows
+    // (new comment count, new files dot), we ALSO bump the list
+    // providers so the badges refresh without the user reopening
+    // the app. The detail/attachments providers handle the open
+    // detail screen; the lists handle the home/admin tabs.
     if (type == 'comment_posted' && taskId != null) {
       ref.invalidate(taskCommentsProvider(taskId));
+      ref.invalidate(myTasksProvider);
+      ref.invalidate(adminAllTasksProvider);
+    }
+
+    if (type == 'brief_attached' && taskId != null) {
+      ref.invalidate(taskAttachmentsProvider(taskId));
+      ref.invalidate(taskDetailProvider(taskId));
+      ref.invalidate(myTasksProvider);
+      ref.invalidate(adminAllTasksProvider);
+    }
+
+    if (type == 'submission_attached' && taskId != null) {
+      ref.invalidate(taskAttachmentsProvider(taskId));
+      ref.invalidate(taskDetailProvider(taskId));
+      ref.invalidate(myTasksProvider);
+      ref.invalidate(adminAllTasksProvider);
+    }
+
+    if (type == 'attachment_deleted' && taskId != null) {
+      ref.invalidate(taskAttachmentsProvider(taskId));
+      ref.invalidate(taskDetailProvider(taskId));
+      ref.invalidate(myTasksProvider);
+      ref.invalidate(adminAllTasksProvider);
     }
   }
 

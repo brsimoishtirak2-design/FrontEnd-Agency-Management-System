@@ -10,25 +10,58 @@ import 'package:intl/intl.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/models/task.dart';
-import '../../../shared/models/task_status.dart';
 import '../../../shared/widgets/app_section_label.dart';
 import '../../../shared/widgets/task_priority_chip.dart';
 import '../../../shared/widgets/task_status_badge.dart';
 import '../../../shared/widgets/client_avatar.dart';
+import '../../../features/admin/data/admin_tasks_providers.dart';
 import '../../auth/data/auth_providers.dart';
+import '../data/attachments_providers.dart';
 import '../data/comments_providers.dart';
 import '../data/tasks_providers.dart';
 import 'widgets/attachments_section.dart';
 import 'widgets/task_action_bar.dart';
 
 /// Task detail screen — full info for a single task.
-class TaskDetailScreen extends ConsumerWidget {
+class TaskDetailScreen extends ConsumerStatefulWidget {
   final int taskId;
 
   const TaskDetailScreen({super.key, required this.taskId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TaskDetailScreen> createState() => _TaskDetailScreenState();
+}
+
+class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Fire-and-forget: tell the server we're viewing this task so the
+    // "unseen" badges on the list clear next time it refreshes. Don't
+    // block UI on the response — the detail screen renders from its
+    // own provider regardless.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref
+          .read(tasksRepositoryProvider)
+          .markViewed(widget.taskId)
+          .then((_) {
+        // Refresh the lists so the badge clears immediately on the
+        // home screen; the user will see the dot disappear when they
+        // hit back.
+        if (!mounted) return;
+        ref.invalidate(myTasksProvider);
+        ref.invalidate(adminAllTasksProvider);
+      }).catchError((_) {
+        // Mark-viewed failure is non-fatal — badges will eventually
+        // clear on the next list refresh anyway. Stay silent.
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final taskId = widget.taskId;
     final taskAsync = ref.watch(taskDetailProvider(taskId));
 
     final authState = ref.watch(authStateProvider);
@@ -67,35 +100,31 @@ class TaskDetailScreen extends ConsumerWidget {
         data: (task) =>
             TaskActionBar(task: task, currentUserId: userId),
       ),
-      floatingActionButton: taskAsync.maybeWhen(
-        data: (task) => _DetailFabStack(task: task, currentUserId: userId),
-        orElse: () => null,
-      ),
     );
   }
 }
 
 /// Three small stacked FABs at the bottom-right of the task detail
-/// screen. Top-to-bottom: Assignees, Comments, Attach. The Attach FAB
-/// is only shown when the current user is the leader AND the task is
-/// in a state where uploads are accepted. The Comments FAB shows a
-/// red unread-count badge when there are new messages from others.
+/// Inline pill row shown right under the header card on the task
+/// detail screen. Three labeled chips — Assignees, Comments, Files —
+/// each carrying its current count. Tapping a chip routes to the
+/// dedicated screen.
 ///
 /// While this widget is mounted, it polls the comments endpoint so
-/// the badge can update without the user having to open the chat.
-/// Platforms with FCM (iOS / Android) poll slowly because push covers
-/// freshness; platforms without FCM (macOS / web) poll faster.
-class _DetailFabStack extends ConsumerStatefulWidget {
+/// the unread dot on the Comments chip updates without the user
+/// having to open the chat. Platforms with FCM (iOS / Android) poll
+/// slowly because push covers freshness; platforms without FCM
+/// (macOS / web) poll faster.
+class _ActionChipsRow extends ConsumerStatefulWidget {
   final Task task;
-  final int? currentUserId;
 
-  const _DetailFabStack({required this.task, required this.currentUserId});
+  const _ActionChipsRow({required this.task});
 
   @override
-  ConsumerState<_DetailFabStack> createState() => _DetailFabStackState();
+  ConsumerState<_ActionChipsRow> createState() => _ActionChipsRowState();
 }
 
-class _DetailFabStackState extends ConsumerState<_DetailFabStack> {
+class _ActionChipsRowState extends ConsumerState<_ActionChipsRow> {
   Timer? _pollTimer;
 
   static Duration get _pollInterval {
@@ -120,98 +149,122 @@ class _DetailFabStackState extends ConsumerState<_DetailFabStack> {
     super.dispose();
   }
 
-  bool get _canAttach {
-    final id = widget.currentUserId;
-    if (id == null) return false;
-    if (!widget.task.isLeaderUser(id)) return false;
-    return widget.task.status == TaskStatus.inProgress ||
-        widget.task.status == TaskStatus.changesRequested;
-  }
-
   @override
   Widget build(BuildContext context) {
     final taskId = widget.task.id;
+    final assigneeCount =
+        widget.task.assignments.where((a) => a.isActive).length;
+    final commentsAsync = ref.watch(taskCommentsProvider(taskId));
+    final attachmentsAsync = ref.watch(taskAttachmentsProvider(taskId));
     final unread = ref.watch(unreadCommentsCountProvider(taskId));
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
+    final commentCount =
+        commentsAsync.maybeWhen(data: (c) => c.length, orElse: () => 0);
+    final fileCount = attachmentsAsync.maybeWhen(
+      data: (a) => a.where((x) => x.commentId == null).length,
+      orElse: () => 0,
+    );
+
+    return Row(
       children: [
-        FloatingActionButton.small(
-          heroTag: 'fab-assignees-$taskId',
-          tooltip: 'Assignees',
-          backgroundColor: Colors.white,
-          foregroundColor: AppTheme.brandPrimaryDark,
-          elevation: 2,
-          onPressed: () => context.push(
-            AppRoute.taskAssigneesPath(taskId),
-          ),
-          child: const Icon(Icons.people_alt_outlined),
-        ),
-        const SizedBox(height: 12),
-        _BadgedFab(
-          heroTag: 'fab-comments-$taskId',
-          tooltip: 'Comments',
-          icon: Icons.chat_bubble_outline_rounded,
-          badgeCount: unread,
-          onPressed: () => context.push(
-            AppRoute.taskCommentsPath(taskId),
+        Expanded(
+          child: _ActionChip(
+            icon: Icons.people_alt_outlined,
+            label: 'Assignees',
+            count: assigneeCount,
+            onTap: () => context.push(AppRoute.taskAssigneesPath(taskId)),
           ),
         ),
-        if (_canAttach) ...[
-          const SizedBox(height: 12),
-          FloatingActionButton.small(
-            heroTag: 'fab-attach-$taskId',
-            tooltip: 'Attach files',
-            backgroundColor: Colors.white,
-            foregroundColor: AppTheme.brandPrimaryDark,
-            elevation: 2,
-            onPressed: () => context.push(
-              AppRoute.taskAttachPath(taskId),
-            ),
-            child: const Icon(Icons.add),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ActionChip(
+            icon: Icons.chat_bubble_outline_rounded,
+            label: 'Comments',
+            count: commentCount,
+            badgeCount: unread,
+            onTap: () => context.push(AppRoute.taskCommentsPath(taskId)),
           ),
-        ],
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ActionChip(
+            icon: Icons.attach_file_rounded,
+            label: 'Files',
+            count: fileCount,
+            onTap: () => context.push(AppRoute.taskAttachPath(taskId)),
+          ),
+        ),
       ],
     );
   }
 }
 
-class _BadgedFab extends StatelessWidget {
-  final String heroTag;
-  final String tooltip;
+/// One chip in the action row: icon + count over a small label, with
+/// an optional red unread badge bubbling out of the top-right.
+class _ActionChip extends StatelessWidget {
   final IconData icon;
+  final String label;
+  final int count;
   final int badgeCount;
-  final VoidCallback onPressed;
+  final VoidCallback onTap;
 
-  const _BadgedFab({
-    required this.heroTag,
-    required this.tooltip,
+  const _ActionChip({
     required this.icon,
-    required this.badgeCount,
-    required this.onPressed,
+    required this.label,
+    required this.count,
+    this.badgeCount = 0,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final fab = FloatingActionButton.small(
-      heroTag: heroTag,
-      tooltip: tooltip,
-      backgroundColor: Colors.white,
-      foregroundColor: AppTheme.brandPrimaryDark,
-      elevation: 2,
-      onPressed: onPressed,
-      child: Icon(icon),
+    final body = Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppTheme.slate100, width: 1),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: AppTheme.brandPrimaryDark),
+              const SizedBox(width: 8),
+              Text(
+                '$count',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.slate900,
+                    ),
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppTheme.slate500,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
 
-    if (badgeCount <= 0) return fab;
-
-    final label = badgeCount > 99 ? '99+' : '$badgeCount';
+    if (badgeCount <= 0) return body;
 
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        fab,
+        body,
         Positioned(
           top: -4,
           right: -4,
@@ -225,7 +278,7 @@ class _BadgedFab extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Text(
-              label,
+              badgeCount > 99 ? '99+' : '$badgeCount',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 10,
@@ -295,11 +348,11 @@ class _TaskDetailContent extends StatelessWidget {
         (task.description?.trim().isNotEmpty ?? false);
 
     return ListView(
-      // Bottom padding makes room for the stacked FABs above the
-      // action bar so the last card isn't hidden behind them.
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         _HeaderCard(task: task),
+        const SizedBox(height: 10),
+        _ActionChipsRow(task: task),
         if (hasDescription) ...[
           const SizedBox(height: 12),
           _DescriptionCard(task: task),

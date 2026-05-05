@@ -7,6 +7,7 @@ import '../../../core/api/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/models/task.dart';
 import '../../../shared/models/task_status.dart';
+import '../../../shared/models/user.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/attachments_providers.dart';
 import '../data/tasks_providers.dart';
@@ -32,18 +33,42 @@ class TaskAttachPickerScreen extends ConsumerStatefulWidget {
 
 enum _PickerKind { image, video, file }
 
+/// Who is uploading and therefore which `purpose` the file gets.
+/// `brief`  → admin attaching reference material (any non-terminal status).
+/// `submission` → leader uploading work (in_progress / changes_requested).
+enum _AttachRole { admin, leader }
+
 class _TaskAttachPickerScreenState
     extends ConsumerState<TaskAttachPickerScreen> {
   bool _isUploading = false;
 
-  bool _canAttach(Task task, int? userId) {
-    if (userId == null) return false;
-    if (!task.isLeaderUser(userId)) return false;
-    return task.status == TaskStatus.inProgress ||
-        task.status == TaskStatus.changesRequested;
+  /// Returns the role under which the current user is allowed to
+  /// attach files to this task, or null if they aren't.
+  _AttachRole? _resolveRole(Task task) {
+    final auth = ref.read(authStateProvider);
+    if (auth is! AuthAuthenticated) return null;
+    final user = auth.user;
+
+    // Admin: can add briefs anytime EXCEPT terminal states.
+    if (user.isAdmin) {
+      if (task.status == TaskStatus.approved ||
+          task.status == TaskStatus.cancelled) {
+        return null;
+      }
+      return _AttachRole.admin;
+    }
+
+    // Leader: can add submission files in-progress or changes-requested.
+    if (task.isLeaderUser(user.id)) {
+      if (task.status == TaskStatus.inProgress ||
+          task.status == TaskStatus.changesRequested) {
+        return _AttachRole.leader;
+      }
+    }
+    return null;
   }
 
-  Future<void> _pickAndUpload(_PickerKind kind) async {
+  Future<void> _pickAndUpload(_PickerKind kind, _AttachRole role) async {
     if (_isUploading) return;
     setState(() => _isUploading = true);
 
@@ -97,10 +122,15 @@ class _TaskAttachPickerScreenState
       }
 
       final repo = ref.read(attachmentsRepositoryProvider);
-      final uploaded = await repo.uploadSubmission(
-        taskId: widget.taskId,
-        filePaths: paths,
-      );
+      final uploaded = role == _AttachRole.admin
+          ? await repo.uploadBrief(
+              taskId: widget.taskId,
+              filePaths: paths,
+            )
+          : await repo.uploadSubmission(
+              taskId: widget.taskId,
+              filePaths: paths,
+            );
 
       ref.invalidate(taskAttachmentsProvider(widget.taskId));
 
@@ -143,8 +173,6 @@ class _TaskAttachPickerScreenState
   @override
   Widget build(BuildContext context) {
     final taskAsync = ref.watch(taskDetailProvider(widget.taskId));
-    final auth = ref.watch(authStateProvider);
-    final myId = auth is AuthAuthenticated ? auth.user.id : null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Attach files')),
@@ -165,12 +193,14 @@ class _TaskAttachPickerScreenState
               ref.invalidate(taskDetailProvider(widget.taskId)),
         ),
         data: (task) {
-          if (!_canAttach(task, myId)) {
+          final role = _resolveRole(task);
+          if (role == null) {
             return const _NotAllowed();
           }
           return _PickerBody(
+            role: role,
             isUploading: _isUploading,
-            onPick: _pickAndUpload,
+            onPick: (kind) => _pickAndUpload(kind, role),
           );
         },
       ),
@@ -179,19 +209,27 @@ class _TaskAttachPickerScreenState
 }
 
 class _PickerBody extends StatelessWidget {
+  final _AttachRole role;
   final bool isUploading;
   final void Function(_PickerKind) onPick;
 
-  const _PickerBody({required this.isUploading, required this.onPick});
+  const _PickerBody({
+    required this.role,
+    required this.isUploading,
+    required this.onPick,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isAdmin = role == _AttachRole.admin;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
           Text(
-            'What do you want to attach?',
+            isAdmin
+                ? 'Add reference files'
+                : 'What do you want to attach?',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: AppTheme.slate900,
@@ -199,8 +237,11 @@ class _PickerBody extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Pick a category — you can choose multiple files at once. '
-            'Max 25 MB per file.',
+            isAdmin
+                ? 'Files added here show up under "Brief" for the assignees. '
+                  'Multi-select is supported. Max 25 MB per file.'
+                : 'Pick a category — you can choose multiple files at once. '
+                  'Max 25 MB per file.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppTheme.slate500,
                 ),

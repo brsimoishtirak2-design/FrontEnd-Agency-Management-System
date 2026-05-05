@@ -53,6 +53,15 @@ class TasksRepository {
     return Task.fromJson(taskJson);
   }
 
+  /// POST /api/tasks/{id}/mark-viewed
+  ///
+  /// Records that the user has just opened the task detail screen so
+  /// the "unseen" badges on the list clear next refresh. Fire-and-
+  /// forget — failures are swallowed and surfaced via debug log only.
+  Future<void> markViewed(int id) async {
+    await _api.post<Map<String, dynamic>>('/tasks/$id/mark-viewed');
+  }
+
   /// POST /api/tasks/{id}/start
   ///
   /// Transitions task from "assigned" → "in_progress". Leader-only.
