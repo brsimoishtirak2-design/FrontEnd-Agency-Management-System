@@ -291,14 +291,19 @@ class _TaskDetailContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasDescription =
+        (task.description?.trim().isNotEmpty ?? false);
+
     return ListView(
       // Bottom padding makes room for the stacked FABs above the
       // action bar so the last card isn't hidden behind them.
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
       children: [
         _HeaderCard(task: task),
-        const SizedBox(height: 12),
-        _DescriptionCard(task: task),
+        if (hasDescription) ...[
+          const SizedBox(height: 12),
+          _DescriptionCard(task: task),
+        ],
         const SizedBox(height: 12),
         _ClientCard(task: task),
         const SizedBox(height: 12),

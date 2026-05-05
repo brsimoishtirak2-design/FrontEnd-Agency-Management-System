@@ -79,6 +79,41 @@ class AttachmentsRepository {
         .toList();
   }
 
+  /// POST /api/admin/tasks/{taskId}/attachments
+  ///
+  /// Admin brief upload. Used at task creation time to attach reference
+  /// files the assignees will see under the "Brief" group on the task
+  /// detail screen. Backend stores them with purpose=brief.
+  Future<List<Attachment>> uploadBrief({
+    required int taskId,
+    required List<String> filePaths,
+  }) async {
+    if (filePaths.isEmpty) {
+      throw const ApiException(message: 'No files selected.');
+    }
+
+    final formData = FormData.fromMap({
+      'files[]': [
+        for (final path in filePaths) await MultipartFile.fromFile(path),
+      ],
+    });
+
+    final response = await _api.post<Map<String, dynamic>>(
+      '/admin/tasks/$taskId/attachments',
+      data: formData,
+    );
+
+    final body = response.data;
+    if (body == null) {
+      throw const ApiException(message: 'Empty response from server.');
+    }
+
+    final rawList = (body['data'] ?? const <dynamic>[]) as List;
+    return rawList
+        .map((a) => Attachment.fromJson(a as Map<String, dynamic>))
+        .toList();
+  }
+
   /// DELETE /api/tasks/{taskId}/attachments/{id}
   ///
   /// Only the original uploader (or admin) can delete.

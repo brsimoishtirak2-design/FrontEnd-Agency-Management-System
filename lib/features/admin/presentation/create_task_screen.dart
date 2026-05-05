@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import '../../../shared/models/task_priority.dart';
 import '../../../shared/utils/date_format.dart';
 import '../../../shared/widgets/app_dropdown_states.dart';
 import '../../../shared/widgets/app_section_label.dart';
+import '../../tasks/data/attachments_providers.dart';
 import '../data/admin_clients_providers.dart';
 import '../data/admin_tasks_providers.dart';
 import '../data/admin_tasks_repository.dart';
@@ -51,6 +53,7 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
   AgencyClient? _selectedClient;
   AgencyClientBranch? _selectedBranch;
   final List<TaskAssigneeInput> _assignees = [];
+  final List<PlatformFile> _briefFiles = [];
   bool _isSubmitting = false;
 
   @override
@@ -166,6 +169,28 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
     });
   }
 
+  Future<void> _pickBriefFiles() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.any,
+      allowMultiple: true,
+      withData: false,
+    );
+    if (result == null) return;
+    setState(() {
+      // De-dupe by path so re-picking doesn't list the same file twice.
+      final existingPaths = _briefFiles.map((f) => f.path).toSet();
+      for (final f in result.files) {
+        if (f.path != null && !existingPaths.contains(f.path)) {
+          _briefFiles.add(f);
+        }
+      }
+    });
+  }
+
+  void _removeBriefFile(PlatformFile file) {
+    setState(() => _briefFiles.removeWhere((f) => f.path == file.path));
+  }
+
   Future<void> _submit() async {
     // Run form validation first — catches empty title, etc.
     if (!_formKey.currentState!.validate()) return;
@@ -190,6 +215,31 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
         assignees: _assignees,
       );
 
+      // Upload any brief attachments AFTER the task exists. Failures
+      // here don't roll back the task — surface a warning and let the
+      // admin retry from the detail screen.
+      String? briefWarning;
+      if (_briefFiles.isNotEmpty) {
+        try {
+          final paths = _briefFiles
+              .map((f) => f.path)
+              .whereType<String>()
+              .toList(growable: false);
+          if (paths.isNotEmpty) {
+            await ref.read(attachmentsRepositoryProvider).uploadBrief(
+                  taskId: newTask.id,
+                  filePaths: paths,
+                );
+            // Make sure the detail screen shows the new files.
+            ref.invalidate(taskAttachmentsProvider(newTask.id));
+          }
+        } on ApiException catch (e) {
+          briefWarning = 'Task created, but attachments failed: ${e.message}';
+        } catch (e) {
+          briefWarning = 'Task created, but attachments failed to upload.';
+        }
+      }
+
       // Refresh list so admin Tasks tab shows the new task immediately.
       ref.invalidate(adminAllTasksProvider);
 
@@ -197,9 +247,11 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Task "${newTask.title}" created.'),
-          backgroundColor: AppTheme.success,
+          content: Text(briefWarning ?? 'Task "${newTask.title}" created.'),
+          backgroundColor:
+              briefWarning == null ? AppTheme.success : AppTheme.warning,
           behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: briefWarning == null ? 3 : 5),
         ),
       );
 
@@ -363,6 +415,19 @@ class _CreateTaskScreenState extends ConsumerState<CreateTaskScreen> {
                       onAdd: _openAssigneePicker,
                       onMakeLeader: _makeLeader,
                       onRemove: _removeAssignee,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // ----- Card 5 — Brief attachments (optional) -----
+                _FormCard(
+                  title: 'Brief attachments (optional)',
+                  children: [
+                    _BriefAttachmentsSection(
+                      files: _briefFiles,
+                      onAdd: _isSubmitting ? null : _pickBriefFiles,
+                      onRemove: _isSubmitting ? null : _removeBriefFile,
                     ),
                   ],
                 ),
@@ -965,5 +1030,160 @@ class _AssigneeChip extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Brief attachments section — file rows + Add button
+// ---------------------------------------------------------------------------
+
+class _BriefAttachmentsSection extends StatelessWidget {
+  final List<PlatformFile> files;
+  final VoidCallback? onAdd;
+  final ValueChanged<PlatformFile>? onRemove;
+
+  const _BriefAttachmentsSection({
+    required this.files,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (files.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppTheme.slate100, width: 1.5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'No attachments yet. Add reference files the assignees '
+              'can read alongside the task.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppTheme.slate500,
+                    fontStyle: FontStyle.italic,
+                  ),
+            ),
+          )
+        else
+          Column(
+            children: [
+              for (final f in files)
+                _BriefFileRow(file: f, onRemove: () => onRemove?.call(f)),
+            ],
+          ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: onAdd,
+          icon: const Icon(Icons.attach_file_rounded, size: 18),
+          label: Text(files.isEmpty ? 'Add files' : 'Add more files'),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(44),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BriefFileRow extends StatelessWidget {
+  final PlatformFile file;
+  final VoidCallback? onRemove;
+
+  const _BriefFileRow({required this.file, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppTheme.slate100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              _iconFor(file.extension),
+              size: 18,
+              color: AppTheme.slate700,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  file.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _displaySize(file.size),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppTheme.slate500,
+                      ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Remove',
+            icon: const Icon(Icons.close, size: 20),
+            color: AppTheme.slate500,
+            onPressed: onRemove,
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _displaySize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  static IconData _iconFor(String? ext) {
+    switch (ext?.toLowerCase()) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'webp':
+      case 'gif':
+        return Icons.image_outlined;
+      case 'pdf':
+        return Icons.picture_as_pdf_outlined;
+      case 'mp4':
+      case 'mov':
+      case 'avi':
+        return Icons.movie_outlined;
+      case 'xlsx':
+      case 'xls':
+      case 'csv':
+        return Icons.table_chart_outlined;
+      case 'doc':
+      case 'docx':
+        return Icons.description_outlined;
+      case 'zip':
+      case 'rar':
+      case '7z':
+        return Icons.folder_zip_outlined;
+      default:
+        return Icons.insert_drive_file_outlined;
+    }
   }
 }
