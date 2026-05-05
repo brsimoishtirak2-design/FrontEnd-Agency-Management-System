@@ -9,6 +9,7 @@ import '../../../core/api/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/models/comment.dart';
 import '../../../shared/utils/date_format.dart';
+import '../../../shared/widgets/user_avatar.dart';
 import '../../auth/data/auth_providers.dart';
 import '../data/comments_providers.dart';
 
@@ -474,8 +475,6 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final align =
-        isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final bg = isMine ? AppTheme.brandPrimary : Colors.white;
     final fg = isMine ? Colors.white : AppTheme.slate900;
     final timeColor = isMine
@@ -484,82 +483,118 @@ class _MessageBubble extends StatelessWidget {
     final radius = const Radius.circular(14);
     final tail = const Radius.circular(4);
 
+    final bubble = GestureDetector(
+      onLongPress: isMine ? () => _showActionsSheet(context) : null,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.72,
+        ),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.only(
+              topLeft: radius,
+              topRight: radius,
+              bottomLeft: isMine ? radius : tail,
+              bottomRight: isMine ? tail : radius,
+            ),
+            border: isMine
+                ? null
+                : Border.all(color: AppTheme.slate100, width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                comment.body,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: fg,
+                      height: 1.35,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (comment.isEdited) ...[
+                    Text(
+                      'edited',
+                      style: TextStyle(
+                        color: timeColor,
+                        fontSize: 10,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(
+                    formatChatTimestamp(comment.createdAt),
+                    style: TextStyle(
+                      color: timeColor,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    // Mine: right-aligned, no avatar — keep the existing minimal look.
+    if (isMine) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [bubble],
+        ),
+      );
+    }
+
+    // Other side: avatar on the left, name above the bubble. When this
+    // is a consecutive message from the same sender (`showName` is
+    // false), render a transparent spacer the size of the avatar so
+    // the bubble stays aligned with the streak above.
+    const avatarRadius = 14.0;
+    const avatarSlotWidth = avatarRadius * 2;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Column(
-        crossAxisAlignment: align,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!isMine && showName)
-            Padding(
-              padding: const EdgeInsets.only(left: 12, bottom: 2),
-              child: Text(
-                comment.userName,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppTheme.brandPrimaryDark,
-                      fontWeight: FontWeight.w700,
+          SizedBox(
+            width: avatarSlotWidth,
+            child: showName
+                ? UserAvatar(
+                    name: comment.userName,
+                    photoUrl: comment.userProfilePhoto,
+                    radius: avatarRadius,
+                  )
+                : null,
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (showName)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 2),
+                    child: Text(
+                      comment.userName,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: AppTheme.brandPrimaryDark,
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
-              ),
-            ),
-          GestureDetector(
-            onLongPress:
-                isMine ? () => _showActionsSheet(context) : null,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.78,
-              ),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.only(
-                    topLeft: radius,
-                    topRight: radius,
-                    bottomLeft: isMine ? radius : tail,
-                    bottomRight: isMine ? tail : radius,
                   ),
-                  border: isMine
-                      ? null
-                      : Border.all(color: AppTheme.slate100, width: 1),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      comment.body,
-                      style:
-                          Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: fg,
-                                height: 1.35,
-                              ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (comment.isEdited) ...[
-                          Text(
-                            'edited',
-                            style: TextStyle(
-                              color: timeColor,
-                              fontSize: 10,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        Text(
-                          formatChatTimestamp(comment.createdAt),
-                          style: TextStyle(
-                            color: timeColor,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                bubble,
+              ],
             ),
           ),
         ],

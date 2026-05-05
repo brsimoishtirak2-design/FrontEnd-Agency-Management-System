@@ -114,23 +114,29 @@ class AdminTasksScreen extends ConsumerWidget {
                 ),
                 data: (tasks) {
                   if (tasks.isEmpty) {
-                    return ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        if (filters.isEmpty)
-                          const AppEmptyState(
-                            icon: Icons.task_alt_outlined,
-                            title: 'No tasks yet',
-                            subtitle:
-                                'Once tasks are created, they will appear here.',
-                          )
-                        else
-                          _FilteredEmptyState(
-                            onClear: () => ref
-                                .read(adminTasksFiltersProvider.notifier)
-                                .clear(),
+                    return LayoutBuilder(
+                      builder: (context, constraints) => SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
                           ),
-                      ],
+                          child: Center(
+                            child: filters.isEmpty
+                                ? const AppEmptyState(
+                                    icon: Icons.task_alt_outlined,
+                                    title: 'No tasks yet',
+                                    subtitle:
+                                        'Once tasks are created, they will appear here.',
+                                  )
+                                : _FilteredEmptyState(
+                                    onClear: () => ref
+                                        .read(adminTasksFiltersProvider.notifier)
+                                        .clear(),
+                                  ),
+                          ),
+                        ),
+                      ),
                     );
                   }
                   return AppEnter(child: _TasksPanel(tasks: tasks));

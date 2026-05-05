@@ -73,16 +73,23 @@ class HomeScreen extends ConsumerWidget {
           ),
           data: (tasks) {
             if (tasks.isEmpty) {
-              return ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  AppEmptyState(
-                    icon: Icons.inbox_outlined,
-                    title: 'No tasks assigned',
-                    subtitle:
-                        "You're all caught up. New tasks will appear here.",
+              return LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: const Center(
+                      child: AppEmptyState(
+                        icon: Icons.inbox_outlined,
+                        title: 'No tasks assigned',
+                        subtitle:
+                            "You're all caught up. New tasks will appear here.",
+                      ),
+                    ),
                   ),
-                ],
+                ),
               );
             }
             return AppEnter(
