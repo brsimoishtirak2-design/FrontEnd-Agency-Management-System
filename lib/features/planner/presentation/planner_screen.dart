@@ -284,6 +284,7 @@ class _PlanContent extends ConsumerWidget {
                 await showModalBottomSheet<bool>(
                   context: context,
                   isScrollControlled: true,
+                  backgroundColor: Colors.white,
                   shape: const RoundedRectangleBorder(
                     borderRadius:
                         BorderRadius.vertical(top: Radius.circular(20)),
@@ -325,6 +326,7 @@ class _PlanContent extends ConsumerWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -676,6 +678,7 @@ class _DaySlotsSheet extends StatelessWidget {
                       await showModalBottomSheet<bool>(
                         context: context,
                         isScrollControlled: true,
+                        backgroundColor: Colors.white,
                         shape: const RoundedRectangleBorder(
                           borderRadius:
                               BorderRadius.vertical(top: Radius.circular(20)),

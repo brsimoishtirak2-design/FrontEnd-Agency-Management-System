@@ -6,6 +6,7 @@ import '../../../../core/api/api_exception.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/agency_user.dart';
 import '../../../../shared/models/planner_slot.dart';
+import '../../../../shared/widgets/user_avatar.dart';
 import '../../../admin/data/admin_users_providers.dart';
 import '../../data/planner_providers.dart';
 
@@ -318,22 +319,157 @@ class _AssigneeDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasSelected = users.any((u) => u.id == selectedId);
-    return DropdownButtonFormField<int>(
-      initialValue: hasSelected ? selectedId : null,
-      decoration: const InputDecoration(
-        border: OutlineInputBorder(),
-        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    final selected = users.firstWhere(
+      (u) => u.id == selectedId,
+      orElse: () => users.isNotEmpty
+          ? users.first
+          : const AgencyUser(
+              id: 0,
+              name: '?',
+              email: '',
+              phone: null,
+              role: 'employee',
+              isActive: true,
+              profilePhoto: null,
+              locationName: null,
+              departmentName: null,
+              jobTitleName: null,
+            ),
+    );
+
+    return InkWell(
+      onTap: onChanged == null ? null : () => _openPicker(context),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppTheme.slate300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            UserAvatar(
+              name: selected.name,
+              photoUrl: selected.profilePhoto,
+              radius: 14,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                selected.name,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const Icon(Icons.arrow_drop_down, color: AppTheme.slate500),
+          ],
+        ),
       ),
-      items: users
-          .map((u) => DropdownMenuItem(
-                value: u.id,
-                child: Text(u.name),
-              ))
-          .toList(),
-      onChanged: onChanged == null ? null : (v) {
-        if (v != null) onChanged!(v);
-      },
+    );
+  }
+
+  Future<void> _openPicker(BuildContext context) async {
+    final picked = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _AssigneePickerSheet(
+        users: users,
+        selectedId: selectedId,
+      ),
+    );
+    if (picked != null && picked != selectedId) {
+      onChanged?.call(picked);
+    }
+  }
+}
+
+class _AssigneePickerSheet extends StatelessWidget {
+  final List<AgencyUser> users;
+  final int selectedId;
+
+  const _AssigneePickerSheet({
+    required this.users,
+    required this.selectedId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppTheme.slate300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Assign to',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                itemCount: users.length,
+                separatorBuilder: (_, _) => const Divider(
+                  height: 1,
+                  color: AppTheme.slate100,
+                ),
+                itemBuilder: (_, i) {
+                  final u = users[i];
+                  final isSelected = u.id == selectedId;
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    leading: UserAvatar(
+                      name: u.name,
+                      photoUrl: u.profilePhoto,
+                      radius: 18,
+                    ),
+                    title: Text(
+                      u.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: u.subtitle.isEmpty ? null : Text(u.subtitle),
+                    trailing: isSelected
+                        ? const Icon(
+                            Icons.check_circle,
+                            color: AppTheme.brandPrimary,
+                          )
+                        : null,
+                    onTap: () => Navigator.of(context).pop(u.id),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
