@@ -148,13 +148,18 @@ class SlotChip extends StatelessWidget {
       height: dense ? 24 : 28,
       child: Stack(
         children: [
-          // Centered label — Align fills the stack and lets the Text find
-          // dead-center both horizontally and vertically.
-          Align(
-            alignment: Alignment.center,
+          // Centered label — let the font use its natural leading so
+          // ascenders/descenders are balanced. forceStrutHeight pins the
+          // line box to a known height that the Stack centers cleanly.
+          Center(
             child: Text(
               typeLabel,
               textAlign: TextAlign.center,
+              strutStyle: StrutStyle(
+                fontSize: dense ? 13 : 16,
+                forceStrutHeight: true,
+                leading: 0.2,
+              ),
               style: TextStyle(
                 fontSize: dense ? 13 : 16,
                 fontWeight: FontWeight.w800,
@@ -162,7 +167,6 @@ class SlotChip extends StatelessWidget {
                 letterSpacing: 0.4,
                 decoration:
                     slot.isCancelled ? TextDecoration.lineThrough : null,
-                height: 1.0,
               ),
             ),
           ),
