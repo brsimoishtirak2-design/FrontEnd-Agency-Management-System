@@ -66,7 +66,7 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
     });
   }
 
-  PreferredSizeWidget _buildAppBar(String adminName) {
+  PreferredSizeWidget? _buildAppBar(String adminName) {
     if (_currentIndex == 0) {
       // Watch — the SearchAppBar runs in controlled mode, so the shell
       // must rebuild whenever filters.search changes (including from
@@ -84,6 +84,10 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
         ],
       );
     }
+
+    // Schedule tab has its own month-nav header inside the screen, so
+    // skip the shell's AppBar to give the calendar the full viewport.
+    if (_currentIndex == 1) return null;
 
     return AppBar(
       title: Text(_titles[_currentIndex]),

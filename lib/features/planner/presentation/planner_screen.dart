@@ -35,7 +35,9 @@ class PlannerScreen extends ConsumerWidget {
         auth is AuthAuthenticated ? auth.user.id : null;
 
     return Scaffold(
-      body: Column(
+      body: SafeArea(
+        bottom: false,
+        child: Column(
         children: [
           _MonthHeader(),
           Expanded(
@@ -59,6 +61,7 @@ class PlannerScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

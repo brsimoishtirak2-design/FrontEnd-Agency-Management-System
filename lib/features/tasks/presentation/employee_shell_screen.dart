@@ -39,11 +39,16 @@ class _EmployeeShellScreenState extends ConsumerState<EmployeeShellScreen> {
         ? authState.user.name.split(' ').first
         : '';
 
+    // Schedule tab has its own month-nav header inside the screen.
+    final isSchedule = _currentIndex == 1;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_titleFor(_currentIndex, firstName)),
-        actions: const [NotificationsBellButton()],
-      ),
+      appBar: isSchedule
+          ? null
+          : AppBar(
+              title: Text(_titleFor(_currentIndex, firstName)),
+              actions: const [NotificationsBellButton()],
+            ),
       body: IndexedStack(
         index: _currentIndex,
         children: _tabs,
