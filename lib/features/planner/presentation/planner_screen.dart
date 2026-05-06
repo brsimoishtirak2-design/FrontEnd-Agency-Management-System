@@ -683,7 +683,17 @@ class _BottomActionsState extends ConsumerState<_BottomActions> {
   Future<void> _exportPdf() async {
     setState(() => _busy = true);
     try {
-      await PlannerPdfExport.exportAndShare(widget.plan);
+      final filterClientId = ref.read(plannerClientFilterProvider);
+      final filterClient = filterClientId == null
+          ? null
+          : widget.plan.planClients.firstWhere(
+              (c) => c.clientId == filterClientId,
+              orElse: () => widget.plan.planClients.first,
+            );
+      await PlannerPdfExport.exportAndShare(
+        widget.plan,
+        filterClient: filterClient,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)

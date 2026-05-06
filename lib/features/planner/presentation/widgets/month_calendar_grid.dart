@@ -22,6 +22,7 @@ class MonthCalendarGrid extends StatelessWidget {
   final void Function(PlannerSlot slot, DateTime newDate)? onSlotMoved;
   final void Function(DateTime date, List<PlannerSlot> slots)? onOverflowTap;
   final int? highlightUserId;
+  final bool singleClientFilter;
 
   const MonthCalendarGrid({
     super.key,
@@ -33,6 +34,7 @@ class MonthCalendarGrid extends StatelessWidget {
     this.onSlotMoved,
     this.onOverflowTap,
     this.highlightUserId,
+    this.singleClientFilter = false,
   });
 
   static const double _minCellWidth = 130;
@@ -95,6 +97,7 @@ class MonthCalendarGrid extends StatelessWidget {
                   onSlotMoved: onSlotMoved,
                   onOverflowTap: onOverflowTap,
                   highlightUserId: highlightUserId,
+                  singleClientFilter: singleClientFilter,
                 ),
               ],
             ),
@@ -166,6 +169,7 @@ class _GridBody extends StatelessWidget {
   final void Function(PlannerSlot slot, DateTime newDate)? onSlotMoved;
   final void Function(DateTime date, List<PlannerSlot> slots)? onOverflowTap;
   final int? highlightUserId;
+  final bool singleClientFilter;
 
   const _GridBody({
     required this.cells,
@@ -176,6 +180,7 @@ class _GridBody extends StatelessWidget {
     required this.onSlotMoved,
     required this.onOverflowTap,
     required this.highlightUserId,
+    required this.singleClientFilter,
   });
 
   @override
@@ -196,6 +201,7 @@ class _GridBody extends StatelessWidget {
                 onSlotMoved: onSlotMoved,
                 onOverflowTap: onOverflowTap,
                 highlightUserId: highlightUserId,
+                singleClientFilter: singleClientFilter,
               ),
             );
           }),
@@ -231,6 +237,7 @@ class _DayCellWidget extends StatelessWidget {
   final void Function(PlannerSlot slot, DateTime newDate)? onSlotMoved;
   final void Function(DateTime date, List<PlannerSlot> slots)? onOverflowTap;
   final int? highlightUserId;
+  final bool singleClientFilter;
 
   const _DayCellWidget({
     required this.cell,
@@ -239,6 +246,7 @@ class _DayCellWidget extends StatelessWidget {
     required this.onSlotMoved,
     required this.onOverflowTap,
     required this.highlightUserId,
+    required this.singleClientFilter,
   });
 
   @override
@@ -264,6 +272,7 @@ class _DayCellWidget extends StatelessWidget {
       onSlotMoved: onSlotMoved,
       onOverflowTap: onOverflowTap,
       highlightUserId: highlightUserId,
+      singleClientFilter: singleClientFilter,
     );
 
     Widget framed;
@@ -329,6 +338,7 @@ class _CellInterior extends StatelessWidget {
   final void Function(PlannerSlot slot, DateTime newDate)? onSlotMoved;
   final void Function(DateTime date, List<PlannerSlot> slots)? onOverflowTap;
   final int? highlightUserId;
+  final bool singleClientFilter;
 
   const _CellInterior({
     required this.cell,
@@ -336,6 +346,7 @@ class _CellInterior extends StatelessWidget {
     required this.onSlotMoved,
     required this.onOverflowTap,
     required this.highlightUserId,
+    required this.singleClientFilter,
   });
 
   @override
@@ -443,6 +454,7 @@ class _CellInterior extends StatelessWidget {
     final chip = SlotChip(
       slot: s,
       dense: true,
+      singleClient: singleClientFilter,
       onTap: () => onSlotTap?.call(s),
     );
     final wrapped = isMine

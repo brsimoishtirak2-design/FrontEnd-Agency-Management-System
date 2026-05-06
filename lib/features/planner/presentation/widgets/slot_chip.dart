@@ -6,7 +6,11 @@ import '../../../../shared/utils/initials.dart';
 
 /// A compact chip representing a single planner slot inside a calendar cell.
 ///
-/// Layout: [P|V badge] [client name short] [assignee initials]
+/// Default layout: [P|V badge] [client name short] [assignee initials]
+/// When [singleClient] is true (because the user filtered the calendar to
+/// one client), the client name is dropped and the type pill widens to
+/// show the full word "Post" / "Video" — there's room because the redundant
+/// client name is gone.
 /// Visual cues:
 ///   - blue/orange background per type (post = info blue, video = warning amber)
 ///   - lock icon if is_locked
@@ -16,12 +20,14 @@ class SlotChip extends StatelessWidget {
   final PlannerSlot slot;
   final VoidCallback? onTap;
   final bool dense;
+  final bool singleClient;
 
   const SlotChip({
     super.key,
     required this.slot,
     this.onTap,
     this.dense = false,
+    this.singleClient = false,
   });
 
   @override
@@ -32,6 +38,7 @@ class SlotChip extends StatelessWidget {
 
     final clientName = slot.clientName ?? 'Client';
     final initials = nameInitials(slot.assignedUserName ?? '?');
+    final typeLabel = slot.isPost ? 'Post' : 'Video';
 
     return Material(
       color: Colors.transparent,
@@ -51,41 +58,53 @@ class SlotChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Type badge — single letter for compactness
+              // Type badge — single letter for compactness, OR full label
+              // when the calendar is filtered to one client (no client
+              // name shown so the pill has room to spell out Post / Video).
               Container(
-                width: dense ? 14 : 16,
-                height: dense ? 14 : 16,
+                padding: singleClient
+                    ? EdgeInsets.symmetric(
+                        horizontal: dense ? 5 : 7,
+                        vertical: dense ? 1 : 2,
+                      )
+                    : EdgeInsets.zero,
+                width: singleClient ? null : (dense ? 14 : 16),
+                height: singleClient ? null : (dense ? 14 : 16),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: typeColor,
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: Text(
-                  slot.isPost ? 'P' : 'V',
+                  singleClient ? typeLabel : (slot.isPost ? 'P' : 'V'),
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: dense ? 9 : 10,
+                    fontSize: singleClient
+                        ? (dense ? 10 : 11)
+                        : (dense ? 9 : 10),
                     fontWeight: FontWeight.w700,
                     height: 1.0,
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  clientName,
-                  style: TextStyle(
-                    fontSize: dense ? 10 : 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.slate900,
-                    decoration: slot.isCancelled
-                        ? TextDecoration.lineThrough
-                        : null,
+              if (!singleClient) ...[
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    clientName,
+                    style: TextStyle(
+                      fontSize: dense ? 10 : 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.slate900,
+                      decoration: slot.isCancelled
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
+              ],
               const SizedBox(width: 4),
               if (slot.isLocked)
                 Padding(

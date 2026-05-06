@@ -4,6 +4,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../shared/models/monthly_plan.dart';
+import '../../../shared/models/monthly_plan_client.dart';
 import '../../../shared/models/planner_slot.dart';
 
 /// Generates and shares a landscape A4 PDF of the given monthly plan.
@@ -13,45 +14,85 @@ import '../../../shared/models/planner_slot.dart';
 class PlannerPdfExport {
   PlannerPdfExport._();
 
-  static Future<void> exportAndShare(MonthlyPlan plan) async {
+  static Future<void> exportAndShare(
+    MonthlyPlan plan, {
+    MonthlyPlanClient? filterClient,
+  }) async {
     final doc = pw.Document();
 
     final font = await PdfGoogleFonts.interRegular();
     final fontBold = await PdfGoogleFonts.interSemiBold();
     final theme = pw.ThemeData.withFont(base: font, bold: fontBold);
 
+    // Pre-fetch the filter client's logo if there is one — pdf widgets are
+    // sync, so the network image must be loaded before we build the layout.
+    pw.ImageProvider? clientLogo;
+    if (filterClient != null && filterClient.clientLogo != null && filterClient.clientLogo!.isNotEmpty) {
+      try {
+        clientLogo = await networkImage(filterClient.clientLogo!);
+      } catch (_) {
+        clientLogo = null;
+      }
+    }
+
+    final slotsToRender = filterClient == null
+        ? plan.slots
+        : plan.slots.where((s) => s.clientId == filterClient.clientId).toList();
+
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4.landscape,
         theme: theme,
         margin: const pw.EdgeInsets.all(24),
-        build: (ctx) => _buildLayout(plan),
+        build: (ctx) => _buildLayout(
+          plan,
+          slots: slotsToRender,
+          filterClient: filterClient,
+          clientLogo: clientLogo,
+        ),
       ),
     );
 
     final bytes = await doc.save();
+    final clientSlug = filterClient == null
+        ? ''
+        : '-${(filterClient.clientName ?? 'client').toLowerCase().replaceAll(RegExp(r'\s+'), '-')}';
     final filename =
-        'BRsimo-${plan.year}-${plan.month.toString().padLeft(2, '0')}-plan.pdf';
+        'BRsimo-${plan.year}-${plan.month.toString().padLeft(2, '0')}$clientSlug-plan.pdf';
 
     await Printing.sharePdf(bytes: bytes, filename: filename);
   }
 
   // ---------- Layout ----------
 
-  static pw.Widget _buildLayout(MonthlyPlan plan) {
+  static pw.Widget _buildLayout(
+    MonthlyPlan plan, {
+    required List<PlannerSlot> slots,
+    MonthlyPlanClient? filterClient,
+    pw.ImageProvider? clientLogo,
+  }) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        _header(plan),
+        _header(plan, filterClient: filterClient, clientLogo: clientLogo),
         pw.SizedBox(height: 10),
-        _calendar(plan),
+        _calendar(
+          plan,
+          slots: slots,
+          singleClient: filterClient != null,
+        ),
         pw.SizedBox(height: 8),
         _legend(plan),
       ],
     );
   }
 
-  static pw.Widget _header(MonthlyPlan plan) {
+  static pw.Widget _header(
+    MonthlyPlan plan, {
+    MonthlyPlanClient? filterClient,
+    pw.ImageProvider? clientLogo,
+  }) {
+    final hasClient = filterClient != null;
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -73,36 +114,101 @@ class PlannerPdfExport {
             ),
           ],
         ),
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.end,
-          children: [
-            pw.Text(
-              plan.isConfirmed ? 'CONFIRMED' : 'DRAFT',
-              style: pw.TextStyle(
-                fontSize: 10,
-                fontWeight: pw.FontWeight.bold,
-                color: plan.isConfirmed
-                    ? PdfColor.fromInt(0xFF10B981)
-                    : PdfColor.fromInt(0xFFF59E0B),
+        if (hasClient)
+          _clientHeaderBadge(filterClient, clientLogo)
+        else
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              pw.Text(
+                plan.isConfirmed ? 'CONFIRMED' : 'DRAFT',
+                style: pw.TextStyle(
+                  fontSize: 10,
+                  fontWeight: pw.FontWeight.bold,
+                  color: plan.isConfirmed
+                      ? PdfColor.fromInt(0xFF10B981)
+                      : PdfColor.fromInt(0xFFF59E0B),
+                ),
               ),
-            ),
-            pw.Text(
-              '${plan.totalCommitments} commitments · ${plan.totalPlacedSlots} placed',
-              style: const pw.TextStyle(fontSize: 9),
-            ),
-          ],
-        ),
+              pw.Text(
+                '${plan.totalCommitments} commitments · ${plan.totalPlacedSlots} placed',
+                style: const pw.TextStyle(fontSize: 9),
+              ),
+            ],
+          ),
       ],
     );
   }
 
-  static pw.Widget _calendar(MonthlyPlan plan) {
+  static pw.Widget _clientHeaderBadge(
+    MonthlyPlanClient client,
+    pw.ImageProvider? logo,
+  ) {
+    return pw.Row(
+      mainAxisSize: pw.MainAxisSize.min,
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.end,
+          children: [
+            pw.Text(
+              client.clientName ?? 'Client',
+              style: pw.TextStyle(
+                fontSize: 14,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 2),
+            pw.Text(
+              '${client.postsCount} posts · ${client.videosCount} videos',
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+          ],
+        ),
+        pw.SizedBox(width: 12),
+        if (logo != null)
+          pw.ClipRRect(
+            horizontalRadius: 8,
+            verticalRadius: 8,
+            child: pw.Container(
+              width: 56,
+              height: 56,
+              child: pw.Image(logo, fit: pw.BoxFit.cover),
+            ),
+          )
+        else
+          pw.Container(
+            width: 56,
+            height: 56,
+            alignment: pw.Alignment.center,
+            decoration: pw.BoxDecoration(
+              color: PdfColor.fromInt(0xFF221042).shade(0.9),
+              borderRadius: pw.BorderRadius.circular(8),
+            ),
+            child: pw.Text(
+              _initials(client.clientName ?? '?'),
+              style: pw.TextStyle(
+                fontSize: 18,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColor.fromInt(0xFF221042),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  static pw.Widget _calendar(
+    MonthlyPlan plan, {
+    required List<PlannerSlot> slots,
+    bool singleClient = false,
+  }) {
     final daysInMonth = DateTime(plan.year, plan.month + 1, 0).day;
     final firstOfMonth = DateTime(plan.year, plan.month, 1);
     final firstColIdx = _saturdayFirstIndex(firstOfMonth.weekday);
 
     final slotsByDate = <int, List<PlannerSlot>>{};
-    for (final s in plan.slots) {
+    for (final s in slots) {
       slotsByDate.putIfAbsent(s.slotDate.day, () => []).add(s);
     }
 
@@ -124,7 +230,12 @@ class PlannerPdfExport {
         }
         final date = DateTime(plan.year, plan.month, day);
         final isFri = date.weekday == DateTime.friday;
-        cells.add(_dayCell(date, isFri, slotsByDate[day] ?? const []));
+        cells.add(_dayCell(
+          date,
+          isFri,
+          slotsByDate[day] ?? const [],
+          singleClient: singleClient,
+        ));
         day++;
       }
       rows.add(pw.TableRow(children: cells));
@@ -174,8 +285,9 @@ class PlannerPdfExport {
   static pw.Widget _dayCell(
     DateTime date,
     bool isFri,
-    List<PlannerSlot> slots,
-  ) {
+    List<PlannerSlot> slots, {
+    bool singleClient = false,
+  }) {
     return pw.Container(
       height: 65,
       color: isFri ? PdfColor.fromInt(0xFFF8FAFC) : PdfColors.white,
@@ -212,7 +324,8 @@ class PlannerPdfExport {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: slots
                     .take(4)
-                    .map((s) => _slotChipPdf(s))
+                    .map((s) =>
+                        _slotChipPdf(s, singleClient: singleClient))
                     .toList(),
               ),
             ),
@@ -221,11 +334,15 @@ class PlannerPdfExport {
     );
   }
 
-  static pw.Widget _slotChipPdf(PlannerSlot s) {
+  static pw.Widget _slotChipPdf(
+    PlannerSlot s, {
+    bool singleClient = false,
+  }) {
     final typeColor = s.isPost
         ? PdfColor.fromInt(0xFF0EA5E9)
         : PdfColor.fromInt(0xFFF59E0B);
     final initials = _initials(s.assignedUserName);
+    final typeLabel = singleClient ? (s.isPost ? 'Post' : 'Video') : (s.isPost ? 'P' : 'V');
     return pw.Container(
       margin: const pw.EdgeInsets.only(top: 1),
       padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 1),
@@ -241,31 +358,37 @@ class PlannerPdfExport {
         mainAxisSize: pw.MainAxisSize.min,
         children: [
           pw.Container(
-            width: 7,
-            height: 7,
+            padding: singleClient
+                ? const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 1)
+                : pw.EdgeInsets.zero,
+            width: singleClient ? null : 7,
+            height: singleClient ? null : 7,
             color: typeColor,
             margin: const pw.EdgeInsets.only(right: 2),
             alignment: pw.Alignment.center,
             child: pw.Text(
-              s.isPost ? 'P' : 'V',
+              typeLabel,
               style: pw.TextStyle(
-                fontSize: 5,
+                fontSize: singleClient ? 6 : 5,
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.white,
               ),
             ),
           ),
-          pw.Expanded(
-            child: pw.Text(
-              s.clientName ?? 'Client',
-              style: pw.TextStyle(
-                fontSize: 6,
-                fontWeight: pw.FontWeight.bold,
+          if (!singleClient)
+            pw.Expanded(
+              child: pw.Text(
+                s.clientName ?? 'Client',
+                style: pw.TextStyle(
+                  fontSize: 6,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: pw.TextOverflow.clip,
               ),
-              maxLines: 1,
-              overflow: pw.TextOverflow.clip,
-            ),
-          ),
+            )
+          else
+            pw.Spacer(),
           pw.SizedBox(width: 2),
           pw.Text(
             initials,
