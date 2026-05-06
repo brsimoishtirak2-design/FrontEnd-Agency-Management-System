@@ -43,7 +43,9 @@ class PlannerPdfExport {
       pw.Page(
         pageFormat: PdfPageFormat.a4.landscape,
         theme: theme,
-        margin: const pw.EdgeInsets.all(24),
+        // Generous safe area on all sides so the calendar never gets cropped
+        // by a printer's non-printable edge zone.
+        margin: const pw.EdgeInsets.all(40),
         build: (ctx) => _buildLayout(
           plan,
           slots: slotsToRender,
@@ -75,14 +77,12 @@ class PlannerPdfExport {
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
         _header(plan, filterClient: filterClient, clientLogo: clientLogo),
-        pw.SizedBox(height: 10),
+        pw.SizedBox(height: 12),
         _calendar(
           plan,
           slots: slots,
           singleClient: filterClient != null,
         ),
-        pw.SizedBox(height: 8),
-        _legend(plan),
       ],
     );
   }
@@ -454,57 +454,6 @@ class PlannerPdfExport {
           ),
         ],
       ),
-    );
-  }
-
-  static pw.Widget _legend(MonthlyPlan plan) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(6),
-      decoration: pw.BoxDecoration(
-        color: PdfColor.fromInt(0xFFF8FAFC),
-        borderRadius: pw.BorderRadius.circular(4),
-      ),
-      child: pw.Row(
-        children: [
-          _legendItem('P', 'Post', PdfColor.fromInt(0xFF0EA5E9)),
-          pw.SizedBox(width: 16),
-          _legendItem('V', 'Video', PdfColor.fromInt(0xFFF59E0B)),
-          pw.SizedBox(width: 16),
-          pw.Text(
-            'Friday is the agency day off.',
-            style: const pw.TextStyle(fontSize: 8),
-          ),
-          pw.Spacer(),
-          pw.Text(
-            'Generated ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}',
-            style: const pw.TextStyle(fontSize: 7),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static pw.Widget _legendItem(String letter, String label, PdfColor color) {
-    return pw.Row(
-      mainAxisSize: pw.MainAxisSize.min,
-      children: [
-        pw.Container(
-          width: 12,
-          height: 12,
-          color: color,
-          alignment: pw.Alignment.center,
-          child: pw.Text(
-            letter,
-            style: pw.TextStyle(
-              fontSize: 8,
-              fontWeight: pw.FontWeight.bold,
-              color: PdfColors.white,
-            ),
-          ),
-        ),
-        pw.SizedBox(width: 4),
-        pw.Text(label, style: const pw.TextStyle(fontSize: 8)),
-      ],
     );
   }
 
