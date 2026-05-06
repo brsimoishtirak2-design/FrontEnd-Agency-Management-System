@@ -341,51 +341,59 @@ class PlannerPdfExport {
     final typeColor = s.isPost
         ? PdfColor.fromInt(0xFF0EA5E9)
         : PdfColor.fromInt(0xFFF59E0B);
-    final typeBg = PdfColor(
-      typeColor.red,
-      typeColor.green,
-      typeColor.blue,
-      0.12,
-    );
+    // Hard-coded light tints. The pdf package's alpha rendering for solid
+    // BoxDecoration fills isn't reliable across viewers (renders as the full
+    // colour in some readers), so we ship pre-mixed tints.
+    final typeBg = s.isPost
+        ? PdfColor.fromInt(0xFFE0F2FE) // light sky
+        : PdfColor.fromInt(0xFFFEF3C7); // light amber
     final initials = _initials(s.assignedUserName);
 
     if (singleClient) {
-      // Mirror the mobile single-client chip: type label centred, initials
-      // small on the right.
       final typeLabel = s.isPost ? 'Post' : 'Video';
       return pw.Container(
         margin: const pw.EdgeInsets.only(top: 1),
         height: 13,
-        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1),
         decoration: pw.BoxDecoration(
           color: typeBg,
           border: pw.Border.all(color: typeColor, width: 0.5),
           borderRadius: pw.BorderRadius.circular(2),
         ),
         child: pw.Stack(
-          alignment: pw.Alignment.center,
           children: [
-            pw.Center(
-              child: pw.Text(
-                typeLabel,
-                style: pw.TextStyle(
-                  fontSize: 7,
-                  fontWeight: pw.FontWeight.bold,
-                  color: typeColor,
+            pw.Positioned.fill(
+              child: pw.Center(
+                child: pw.Text(
+                  typeLabel,
+                  style: pw.TextStyle(
+                    fontSize: 7.5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: typeColor,
+                  ),
                 ),
               ),
             ),
             pw.Positioned(
-              right: 0,
+              right: 3,
               top: 0,
               bottom: 0,
               child: pw.Center(
-                child: pw.Text(
-                  initials,
-                  style: pw.TextStyle(
-                    fontSize: 5,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromInt(0xFF334155),
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(
+                    horizontal: 3,
+                    vertical: 1,
+                  ),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromInt(0xFFE2E8F0),
+                    borderRadius: pw.BorderRadius.circular(2),
+                  ),
+                  child: pw.Text(
+                    initials,
+                    style: pw.TextStyle(
+                      fontSize: 5.5,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColor.fromInt(0xFF334155),
+                    ),
                   ),
                 ),
               ),
