@@ -595,7 +595,10 @@ class _BottomActionsState extends ConsumerState<_BottomActions> {
 }
 
 /// Bottom sheet listing every slot for a single day. Tap one to open the
-/// edit sheet (admin) — for employees it's read-only.
+/// edit sheet (admin); long-press to drag onto a different cell on the
+/// calendar (admin) — the sheet dismisses on drag start so the calendar
+/// underneath becomes a reachable drop target. Employees see it
+/// read-only.
 class _DaySlotsSheet extends StatelessWidget {
   final DateTime date;
   final List<PlannerSlot> slots;
@@ -659,6 +662,13 @@ class _DaySlotsSheet extends StatelessWidget {
                 ),
               ],
             ),
+            if (isAdmin) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Tap to edit · long-press to drag onto another date',
+                style: const TextStyle(fontSize: 11, color: AppTheme.slate500),
+              ),
+            ],
             const SizedBox(height: 12),
             ConstrainedBox(
               constraints: BoxConstraints(
@@ -670,7 +680,7 @@ class _DaySlotsSheet extends StatelessWidget {
                 separatorBuilder: (_, _) => const SizedBox(height: 6),
                 itemBuilder: (_, i) {
                   final s = slots[i];
-                  return SlotChip(
+                  final chip = SlotChip(
                     slot: s,
                     onTap: () async {
                       Navigator.of(context).pop();
@@ -687,6 +697,39 @@ class _DaySlotsSheet extends StatelessWidget {
                             SlotEditSheet(slot: s, planId: planId),
                       );
                     },
+                  );
+                  if (!isAdmin) return chip;
+                  return LongPressDraggable<PlannerSlot>(
+                    data: s,
+                    delay: const Duration(milliseconds: 250),
+                    onDragStarted: () {
+                      // Drop the sheet so the calendar's DragTargets become
+                      // reachable; the feedback overlay keeps following the
+                      // pointer because it's owned by the root Overlay.
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    feedback: Material(
+                      color: Colors.transparent,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 240),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.18),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: SlotChip(slot: s),
+                        ),
+                      ),
+                    ),
+                    child: chip,
                   );
                 },
               ),
