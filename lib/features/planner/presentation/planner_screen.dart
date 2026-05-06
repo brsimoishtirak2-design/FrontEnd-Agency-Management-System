@@ -473,11 +473,7 @@ class _BottomActionsState extends ConsumerState<_BottomActions> {
       );
     }
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppTheme.slate200, width: 1)),
-      ),
+    return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Row(
         children: [
