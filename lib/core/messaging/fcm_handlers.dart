@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/admin/data/admin_tasks_providers.dart';
 import '../../features/auth/data/auth_providers.dart';
+import '../../shared/models/user.dart';
 import '../../features/notifications/data/notifications_providers.dart';
 import '../../features/tasks/data/attachments_providers.dart';
 import '../../features/tasks/data/comments_providers.dart';
@@ -134,13 +135,33 @@ class _FcmHandlersState extends ConsumerState<FcmHandlers>
     if (kDebugMode) {
       debugPrint('FCM foreground → showing in-app banner: "$title"');
     }
+
+    // Planner-consolidated pushes have no task_id — tap should route to
+    // the user's Tasks tab (admin → /admin, employee → /home) so they
+    // see the new tasks that just landed.
+    final isPlannerPush =
+        type == 'planner_initial' || type == 'planner_updated';
+    VoidCallback? onTapAction;
+    if (taskId != null) {
+      onTapAction = () => _routeForMessage(message, taskId);
+    } else if (isPlannerPush) {
+      onTapAction = _routeToTasksHome;
+    }
+
     InAppNotification.show(
       navigatorKey: router.routerDelegate.navigatorKey,
       title: title,
-      onTap: taskId == null ? null : () => _routeForMessage(message, taskId),
-      actionLabel: taskId == null ? null : 'View',
-      onAction: taskId == null ? null : () => _routeForMessage(message, taskId),
+      onTap: onTapAction,
+      actionLabel: onTapAction == null ? null : 'View',
+      onAction: onTapAction,
     );
+  }
+
+  /// Route to the current user's primary task list (the home tab in their shell).
+  void _routeToTasksHome() {
+    final auth = ref.read(authStateProvider);
+    if (auth is! AuthAuthenticated) return;
+    _navigateTo(auth.user.isAdmin ? AppRoute.admin : AppRoute.home);
   }
 
   void _handleTappedMessage(RemoteMessage message) {
@@ -174,6 +195,10 @@ class _FcmHandlersState extends ConsumerState<FcmHandlers>
       'task_approved',
       'task_cancelled',
       'task_updated',
+      // Planner pushes affect the same task lists — confirming a plan or
+      // editing a confirmed plan creates/changes Tasks for the assignees.
+      'planner_initial',
+      'planner_updated',
     };
 
     if (type != null && taskStateTypes.contains(type)) {

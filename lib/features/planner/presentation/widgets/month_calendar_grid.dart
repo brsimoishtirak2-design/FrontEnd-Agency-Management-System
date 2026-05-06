@@ -11,14 +11,15 @@ import 'slot_chip.dart';
 /// since it's the agency day off). Each cell shows the date number plus a
 /// stack of [SlotChip]s for that day.
 ///
-/// The grid is horizontally scrollable when its natural width exceeds the
-/// viewport (so it remains readable on phones in portrait too).
+/// Slots are draggable when [onSlotMoved] is provided — long-press a chip
+/// to lift it, drop on any non-Friday cell within the month to reschedule.
 class MonthCalendarGrid extends StatelessWidget {
   final int year;
   final int month;
   final List<PlannerSlot> slots;
   final void Function(PlannerSlot slot)? onSlotTap;
   final void Function(DateTime date)? onEmptyDayTap;
+  final void Function(PlannerSlot slot, DateTime newDate)? onSlotMoved;
   final int? highlightUserId;
 
   const MonthCalendarGrid({
@@ -28,6 +29,7 @@ class MonthCalendarGrid extends StatelessWidget {
     required this.slots,
     this.onSlotTap,
     this.onEmptyDayTap,
+    this.onSlotMoved,
     this.highlightUserId,
   });
 
@@ -39,7 +41,6 @@ class MonthCalendarGrid extends StatelessWidget {
     final daysInMonth = DateUtils.getDaysInMonth(year, month);
     final firstOfMonth = DateTime(year, month, 1);
 
-    // Map slots by date for quick lookup
     final slotsByDate = <int, List<PlannerSlot>>{};
     for (final s in slots) {
       if (s.slotDate.year == year && s.slotDate.month == month) {
@@ -47,8 +48,6 @@ class MonthCalendarGrid extends StatelessWidget {
       }
     }
 
-    // Calculate weekday-of-first in our Sat-first scheme
-    // Dart: DateTime.weekday → Mon=1 .. Sun=7. We want Sat=0, Sun=1, Mon=2, Tue=3, Wed=4, Thu=5, Fri=6.
     final dartWd = firstOfMonth.weekday;
     final saturdayFirstIdx = _toSaturdayFirst(dartWd);
 
@@ -91,6 +90,7 @@ class MonthCalendarGrid extends StatelessWidget {
                   cellHeight: _minCellHeight,
                   onSlotTap: onSlotTap,
                   onEmptyDayTap: onEmptyDayTap,
+                  onSlotMoved: onSlotMoved,
                   highlightUserId: highlightUserId,
                 ),
               ],
@@ -101,9 +101,7 @@ class MonthCalendarGrid extends StatelessWidget {
     );
   }
 
-  /// Convert Dart weekday (Mon=1..Sun=7) to Saturday-first index (Sat=0..Fri=6).
   int _toSaturdayFirst(int dartWd) {
-    // Sat=6 → 0, Sun=7 → 1, Mon=1 → 2, Tue=2 → 3, Wed=3 → 4, Thu=4 → 5, Fri=5 → 6
     switch (dartWd) {
       case DateTime.saturday:
         return 0;
@@ -162,6 +160,7 @@ class _GridBody extends StatelessWidget {
   final double cellHeight;
   final void Function(PlannerSlot slot)? onSlotTap;
   final void Function(DateTime date)? onEmptyDayTap;
+  final void Function(PlannerSlot slot, DateTime newDate)? onSlotMoved;
   final int? highlightUserId;
 
   const _GridBody({
@@ -170,6 +169,7 @@ class _GridBody extends StatelessWidget {
     required this.cellHeight,
     required this.onSlotTap,
     required this.onEmptyDayTap,
+    required this.onSlotMoved,
     required this.highlightUserId,
   });
 
@@ -188,6 +188,7 @@ class _GridBody extends StatelessWidget {
                 cell: cell,
                 onSlotTap: onSlotTap,
                 onEmptyDayTap: onEmptyDayTap,
+                onSlotMoved: onSlotMoved,
                 highlightUserId: highlightUserId,
               ),
             );
@@ -221,12 +222,14 @@ class _DayCellWidget extends StatelessWidget {
   final _DayCell cell;
   final void Function(PlannerSlot slot)? onSlotTap;
   final void Function(DateTime date)? onEmptyDayTap;
+  final void Function(PlannerSlot slot, DateTime newDate)? onSlotMoved;
   final int? highlightUserId;
 
   const _DayCellWidget({
     required this.cell,
     required this.onSlotTap,
     required this.onEmptyDayTap,
+    required this.onSlotMoved,
     required this.highlightUserId,
   });
 
@@ -245,13 +248,50 @@ class _DayCellWidget extends StatelessWidget {
     }
 
     final date = cell.date!;
-    final isToday = _isToday(date);
+    final canDrop = !cell.isFriday && onSlotMoved != null;
 
-    return InkWell(
-      onTap: cell.isFriday
-          ? null
-          : () => onEmptyDayTap?.call(date),
-      child: Container(
+    Widget content = _CellInterior(
+      cell: cell,
+      onSlotTap: onSlotTap,
+      onSlotMoved: onSlotMoved,
+      highlightUserId: highlightUserId,
+    );
+
+    if (canDrop) {
+      content = DragTarget<PlannerSlot>(
+        onWillAcceptWithDetails: (details) {
+          // Don't accept dropping a slot back onto its own date
+          return details.data.slotDate.day != date.day ||
+              details.data.slotDate.month != date.month ||
+              details.data.slotDate.year != date.year;
+        },
+        onAcceptWithDetails: (details) {
+          onSlotMoved?.call(details.data, date);
+        },
+        builder: (context, candidates, rejected) {
+          final isHovering = candidates.isNotEmpty;
+          return Container(
+            decoration: BoxDecoration(
+              color: isHovering
+                  ? AppTheme.brandPrimary.withValues(alpha: 0.08)
+                  : Colors.white,
+              border: Border(
+                right: const BorderSide(color: AppTheme.slate100, width: 1),
+                bottom: const BorderSide(color: AppTheme.slate100, width: 1),
+                top: isHovering
+                    ? const BorderSide(color: AppTheme.brandPrimary, width: 2)
+                    : BorderSide.none,
+                left: isHovering
+                    ? const BorderSide(color: AppTheme.brandPrimary, width: 2)
+                    : BorderSide.none,
+              ),
+            ),
+            child: content,
+          );
+        },
+      );
+    } else {
+      content = Container(
         decoration: BoxDecoration(
           color: cell.isFriday ? AppTheme.slate50 : Colors.white,
           border: const Border(
@@ -259,95 +299,149 @@ class _DayCellWidget extends StatelessWidget {
             bottom: BorderSide(color: AppTheme.slate100, width: 1),
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: content,
+      );
+    }
+
+    if (cell.isFriday) {
+      return content;
+    }
+    return InkWell(
+      onTap: () => onEmptyDayTap?.call(date),
+      child: content,
+    );
+  }
+}
+
+class _CellInterior extends StatelessWidget {
+  final _DayCell cell;
+  final void Function(PlannerSlot slot)? onSlotTap;
+  final void Function(PlannerSlot slot, DateTime newDate)? onSlotMoved;
+  final int? highlightUserId;
+
+  const _CellInterior({
+    required this.cell,
+    required this.onSlotTap,
+    required this.onSlotMoved,
+    required this.highlightUserId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final date = cell.date!;
+    final isToday = _isToday(date);
+    final canDrag = onSlotMoved != null;
+
+    return Padding(
+      padding: const EdgeInsets.all(4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isToday
-                          ? AppTheme.brandPrimary
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      DateFormat('d').format(date),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: isToday
-                            ? Colors.white
-                            : (cell.isFriday
-                                ? AppTheme.slate300
-                                : AppTheme.slate700),
-                      ),
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 1,
+                ),
+                decoration: BoxDecoration(
+                  color: isToday ? AppTheme.brandPrimary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  DateFormat('d').format(date),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isToday
+                        ? Colors.white
+                        : (cell.isFriday
+                            ? AppTheme.slate300
+                            : AppTheme.slate700),
                   ),
-                  if (cell.slots.isNotEmpty)
-                    Text(
-                      '${cell.slots.length}',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.slate500,
-                      ),
-                    ),
-                ],
+                ),
               ),
-              const SizedBox(height: 2),
-              Expanded(
-                child: cell.isFriday
-                    ? Center(
-                        child: Text(
-                          'OFF',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.slate300,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: EdgeInsets.zero,
-                        physics: const ClampingScrollPhysics(),
-                        itemCount: cell.slots.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 2),
-                        itemBuilder: (_, idx) {
-                          final s = cell.slots[idx];
-                          final isMine = highlightUserId != null &&
-                              s.assignedUserId == highlightUserId;
-                          return Container(
-                            decoration: isMine
-                                ? BoxDecoration(
-                                    borderRadius: BorderRadius.circular(7),
-                                    border: Border.all(
-                                      color: AppTheme.brandPrimary,
-                                      width: 1.5,
-                                    ),
-                                  )
-                                : null,
-                            padding: isMine ? const EdgeInsets.all(1) : null,
-                            child: SlotChip(
-                              slot: s,
-                              dense: true,
-                              onTap: () => onSlotTap?.call(s),
-                            ),
-                          );
-                        },
-                      ),
-              ),
+              if (cell.slots.isNotEmpty)
+                Text(
+                  '${cell.slots.length}',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.slate500,
+                  ),
+                ),
             ],
           ),
-        ),
+          const SizedBox(height: 2),
+          Expanded(
+            child: cell.isFriday
+                ? Center(
+                    child: Text(
+                      'OFF',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.slate300,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: EdgeInsets.zero,
+                    physics: const ClampingScrollPhysics(),
+                    itemCount: cell.slots.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 2),
+                    itemBuilder: (_, idx) {
+                      final s = cell.slots[idx];
+                      final isMine = highlightUserId != null &&
+                          s.assignedUserId == highlightUserId;
+                      final chip = SlotChip(
+                        slot: s,
+                        dense: true,
+                        onTap: () => onSlotTap?.call(s),
+                      );
+                      final wrapped = Container(
+                        decoration: isMine
+                            ? BoxDecoration(
+                                borderRadius: BorderRadius.circular(7),
+                                border: Border.all(
+                                  color: AppTheme.brandPrimary,
+                                  width: 1.5,
+                                ),
+                              )
+                            : null,
+                        padding: isMine ? const EdgeInsets.all(1) : null,
+                        child: chip,
+                      );
+                      if (!canDrag) return wrapped;
+                      return LongPressDraggable<PlannerSlot>(
+                        data: s,
+                        delay: const Duration(milliseconds: 250),
+                        feedback: Material(
+                          color: Colors.transparent,
+                          child: Container(
+                            constraints: const BoxConstraints(maxWidth: 180),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(7),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.18),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: SlotChip(slot: s, dense: false),
+                          ),
+                        ),
+                        childWhenDragging: Opacity(opacity: 0.3, child: wrapped),
+                        child: wrapped,
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }

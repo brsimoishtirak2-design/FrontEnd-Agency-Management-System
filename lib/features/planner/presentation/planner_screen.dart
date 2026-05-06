@@ -5,7 +5,9 @@ import '../../../core/api/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/models/monthly_plan.dart';
 import '../../../shared/models/user.dart';
+import '../../admin/data/admin_tasks_providers.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../tasks/data/tasks_providers.dart';
 import '../data/planner_providers.dart';
 import '../data/planner_repository.dart';
 import 'pdf_export.dart';
@@ -288,6 +290,9 @@ class _PlanContent extends ConsumerWidget {
                       SlotEditSheet(slot: slot, planId: plan.id),
                 );
               },
+              onSlotMoved: !isAdmin
+                  ? null
+                  : (slot, newDate) => _moveSlot(context, ref, plan.id, slot, newDate),
             ),
           ),
         ),
@@ -297,6 +302,31 @@ class _PlanContent extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _moveSlot(
+    BuildContext context,
+    WidgetRef ref,
+    int planId,
+    dynamic slot,
+    DateTime newDate,
+  ) async {
+    final dateStr =
+        '${newDate.year.toString().padLeft(4, '0')}-${newDate.month.toString().padLeft(2, '0')}-${newDate.day.toString().padLeft(2, '0')}';
+    try {
+      await ref.read(plannerRepositoryProvider).updateSlot(
+            planId: planId,
+            slotId: slot.id as int,
+            slotDate: dateStr,
+            isLocked: true,
+          );
+      ref.invalidate(plannerPlanProvider);
+    } on ApiException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
   }
 }
 
@@ -495,6 +525,9 @@ class _BottomActionsState extends ConsumerState<_BottomActions> {
       final result =
           await ref.read(plannerRepositoryProvider).confirm(widget.plan.id);
       ref.invalidate(plannerPlanProvider);
+      // The new tasks should appear in everyone's Tasks tab immediately.
+      ref.invalidate(adminAllTasksProvider);
+      ref.invalidate(myTasksProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(result.isFirstConfirm
