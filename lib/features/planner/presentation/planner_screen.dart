@@ -367,13 +367,10 @@ class _PlanContentState extends ConsumerState<_PlanContent> {
                               onTap: _closeExpander,
                               child: BackdropFilter(
                                 filter: ImageFilter.blur(
-                                  sigmaX: 4,
-                                  sigmaY: 4,
+                                  sigmaX: 6,
+                                  sigmaY: 6,
                                 ),
-                                child: Container(
-                                  color: Colors.black
-                                      .withValues(alpha: 0.35),
-                                ),
+                                child: const SizedBox.expand(),
                               ),
                             ),
                           ),
