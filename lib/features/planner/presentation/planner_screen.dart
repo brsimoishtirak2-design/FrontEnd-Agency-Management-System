@@ -594,12 +594,10 @@ class _BottomActionsState extends ConsumerState<_BottomActions> {
   }
 }
 
-/// Bottom sheet listing every slot for a single day. Tap one to open the
-/// edit sheet (admin); long-press to drag onto a different cell on the
-/// calendar (admin) — the sheet dismisses on drag start so the calendar
-/// underneath becomes a reachable drop target. Employees see it
-/// read-only.
-class _DaySlotsSheet extends StatelessWidget {
+/// Bottom sheet listing every slot for a single day. Tap a chip to open
+/// the edit sheet, or tap the move icon to jump straight to a date
+/// picker so admins can reschedule with two taps.
+class _DaySlotsSheet extends ConsumerWidget {
   final DateTime date;
   final List<PlannerSlot> slots;
   final int planId;
@@ -613,7 +611,7 @@ class _DaySlotsSheet extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final dayLabel =
         '${_weekday(date)}, ${_monthName(date.month)} ${date.day}';
     return SafeArea(
@@ -662,13 +660,6 @@ class _DaySlotsSheet extends StatelessWidget {
                 ),
               ],
             ),
-            if (isAdmin) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Tap to edit · long-press to drag onto another date',
-                style: const TextStyle(fontSize: 11, color: AppTheme.slate500),
-              ),
-            ],
             const SizedBox(height: 12),
             ConstrainedBox(
               constraints: BoxConstraints(
@@ -680,56 +671,40 @@ class _DaySlotsSheet extends StatelessWidget {
                 separatorBuilder: (_, _) => const SizedBox(height: 6),
                 itemBuilder: (_, i) {
                   final s = slots[i];
-                  final chip = SlotChip(
-                    slot: s,
-                    onTap: () async {
-                      Navigator.of(context).pop();
-                      if (!isAdmin) return;
-                      await showModalBottomSheet<bool>(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.white,
-                        shape: const RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.vertical(top: Radius.circular(20)),
-                        ),
-                        builder: (_) =>
-                            SlotEditSheet(slot: s, planId: planId),
-                      );
-                    },
-                  );
-                  if (!isAdmin) return chip;
-                  return LongPressDraggable<PlannerSlot>(
-                    data: s,
-                    delay: const Duration(milliseconds: 250),
-                    onDragStarted: () {
-                      // Drop the sheet so the calendar's DragTargets become
-                      // reachable; the feedback overlay keeps following the
-                      // pointer because it's owned by the root Overlay.
-                      if (Navigator.of(context).canPop()) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                    feedback: Material(
-                      color: Colors.transparent,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 240),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.18),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: SlotChip(
+                          slot: s,
+                          onTap: () async {
+                            Navigator.of(context).pop();
+                            if (!isAdmin) return;
+                            await showModalBottomSheet<bool>(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.white,
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(20),
+                                ),
                               ),
-                            ],
-                          ),
-                          child: SlotChip(slot: s),
+                              builder: (_) =>
+                                  SlotEditSheet(slot: s, planId: planId),
+                            );
+                          },
                         ),
                       ),
-                    ),
-                    child: chip,
+                      if (isAdmin) ...[
+                        const SizedBox(width: 8),
+                        IconButton(
+                          tooltip: 'Move to another date',
+                          icon: const Icon(Icons.event_repeat, size: 20),
+                          onPressed: () => _moveSlot(context, ref, s),
+                          visualDensity: VisualDensity.compact,
+                          color: AppTheme.brandPrimary,
+                        ),
+                      ],
+                    ],
                   );
                 },
               ),
@@ -738,6 +713,42 @@ class _DaySlotsSheet extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _moveSlot(
+    BuildContext context,
+    WidgetRef ref,
+    PlannerSlot slot,
+  ) async {
+    final monthStart = DateTime(date.year, date.month, 1);
+    final monthEnd = DateTime(date.year, date.month + 1, 0);
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: slot.slotDate,
+      firstDate: monthStart,
+      lastDate: monthEnd,
+      selectableDayPredicate: (d) => d.weekday != DateTime.friday,
+    );
+    if (picked == null) return;
+
+    final iso =
+        '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+    try {
+      await ref.read(plannerRepositoryProvider).updateSlot(
+            planId: planId,
+            slotId: slot.id,
+            slotDate: iso,
+            isLocked: true,
+          );
+      ref.invalidate(plannerPlanProvider);
+      if (context.mounted) Navigator.of(context).pop();
+    } on ApiException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
   }
 
   static const _weekdayShort = [
