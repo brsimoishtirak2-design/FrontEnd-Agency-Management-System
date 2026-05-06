@@ -475,43 +475,87 @@ class _BottomActionsState extends ConsumerState<_BottomActions> {
         color: Colors.white,
         border: Border(top: BorderSide(color: AppTheme.slate200, width: 1)),
       ),
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Row(
-        children: [
-          IconButton(
-            tooltip: 'Manage clients',
-            onPressed: _busy ? null : _openClients,
-            icon: const Icon(Icons.business),
-          ),
-          IconButton(
-            tooltip: 'Export PDF',
-            onPressed: _busy ? null : _exportPdf,
-            icon: const Icon(Icons.picture_as_pdf_outlined),
-          ),
-          const Spacer(),
-          if (widget.plan.isDraft || widget.plan.isConfirmed) ...[
-            OutlinedButton.icon(
-              onPressed: _busy ? null : () => _runGenerate(rebalance: false),
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text('Generate'),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // On narrow phones, the Generate button collapses to icon-only so
+          // the primary CTA always stays fully visible.
+          final isNarrow = constraints.maxWidth < 420;
+
+          final secondaries = [
+            IconButton(
+              tooltip: 'Manage clients',
+              onPressed: _busy ? null : _openClients,
+              icon: const Icon(Icons.business),
+              visualDensity: VisualDensity.compact,
             ),
-            const SizedBox(width: 8),
-            FilledButton.icon(
-              onPressed: _busy ? null : _confirm,
-              icon: _busy
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Icon(widget.plan.isDraft ? Icons.check : Icons.update),
-              label: Text(widget.plan.isDraft ? 'Confirm' : 'Confirm changes'),
+            IconButton(
+              tooltip: 'Export PDF',
+              onPressed: _busy ? null : _exportPdf,
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              visualDensity: VisualDensity.compact,
             ),
-          ],
-        ],
+          ];
+
+          if (!widget.plan.isDraft && !widget.plan.isConfirmed) {
+            return Row(children: secondaries);
+          }
+
+          final generateBtn = isNarrow
+              ? IconButton(
+                  tooltip: 'Generate',
+                  onPressed:
+                      _busy ? null : () => _runGenerate(rebalance: false),
+                  icon: const Icon(Icons.auto_awesome),
+                  visualDensity: VisualDensity.compact,
+                )
+              : OutlinedButton.icon(
+                  onPressed:
+                      _busy ? null : () => _runGenerate(rebalance: false),
+                  icon: const Icon(Icons.auto_awesome, size: 18),
+                  label: const Text('Generate'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                );
+
+          final confirmBtn = FilledButton.icon(
+            onPressed: _busy ? null : _confirm,
+            icon: _busy
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Icon(
+                    widget.plan.isDraft ? Icons.check : Icons.update,
+                    size: 18,
+                  ),
+            label: Text(widget.plan.isDraft ? 'Confirm' : 'Apply'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 10,
+              ),
+            ),
+          );
+
+          return Row(
+            children: [
+              ...secondaries,
+              const Spacer(),
+              generateBtn,
+              const SizedBox(width: 6),
+              confirmBtn,
+            ],
+          );
+        },
       ),
     );
   }
