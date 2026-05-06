@@ -357,9 +357,9 @@ class _PlanContentState extends ConsumerState<_PlanContent> {
                       opacity: _isDraggingFromPanel ? 0.0 : 1.0,
                       child: Center(
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 560),
+                          constraints: const BoxConstraints(maxWidth: 760),
                           child: Padding(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(24),
                             child: _DayExpanderPanel(
                               date: _expandedDate!,
                               slots: expandedSlots,
@@ -665,20 +665,20 @@ class _DayExpanderPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dayLabel =
         '${_weekday(date)}, ${_monthName(date.month)} ${date.day}';
-    final maxHeight = MediaQuery.of(context).size.height * 0.45;
+    final maxHeight = MediaQuery.of(context).size.height * 0.6;
 
     return Material(
       elevation: 16,
       shadowColor: Colors.black.withValues(alpha: 0.25),
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxHeight: maxHeight),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 8, 16),
+            padding: const EdgeInsets.fromLTRB(24, 16, 12, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -691,24 +691,24 @@ class _DayExpanderPanel extends ConsumerWidget {
                           Text(
                             dayLabel,
                             style: const TextStyle(
-                              fontSize: 17,
+                              fontSize: 20,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 10),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
+                              horizontal: 10,
+                              vertical: 3,
                             ),
                             decoration: BoxDecoration(
                               color: AppTheme.slate100,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               '${slots.length} slot${slots.length == 1 ? '' : 's'}',
                               style: const TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: AppTheme.slate700,
                               ),
@@ -719,23 +719,24 @@ class _DayExpanderPanel extends ConsumerWidget {
                     ),
                     IconButton(
                       tooltip: 'Close',
-                      icon: const Icon(Icons.close, size: 20),
+                      icon: const Icon(Icons.close, size: 22),
                       onPressed: onClose,
-                      visualDensity: VisualDensity.compact,
                     ),
                   ],
                 ),
                 if (isAdmin)
                   Padding(
-                    padding: const EdgeInsets.only(right: 12, bottom: 6),
+                    padding: const EdgeInsets.only(right: 12, top: 4, bottom: 12),
                     child: Text(
                       'Hold a chip and drag onto a date in the calendar above to move it.',
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 13,
                         color: AppTheme.slate500,
                       ),
                     ),
-                  ),
+                  )
+                else
+                  const SizedBox(height: 8),
                 Flexible(
                   child: Padding(
                     padding: const EdgeInsets.only(right: 12),
@@ -743,7 +744,7 @@ class _DayExpanderPanel extends ConsumerWidget {
                       shrinkWrap: true,
                       padding: const EdgeInsets.only(bottom: 4),
                       itemCount: slots.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 6),
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (_, i) {
                         final s = slots[i];
                         final chip = SlotChip(
