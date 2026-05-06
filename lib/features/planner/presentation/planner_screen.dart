@@ -893,12 +893,12 @@ class _MoreActionsDialog extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 380),
+          constraints: const BoxConstraints(maxWidth: 640),
           child: Material(
             color: Colors.white,
             elevation: 16,
             shadowColor: Colors.black.withValues(alpha: 0.25),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             clipBehavior: Clip.antiAlias,
             child: SafeArea(
               top: false,
@@ -907,16 +907,16 @@ class _MoreActionsDialog extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Padding(
-                    padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
+                    padding: EdgeInsets.fromLTRB(28, 24, 28, 8),
                     child: Text(
                       'Plan actions',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 22,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
-                  const Divider(height: 12, color: AppTheme.slate100),
+                  const Divider(height: 16, color: AppTheme.slate100),
                   _MoreActionTile(
                     icon: Icons.auto_awesome,
                     title: 'Generate',
@@ -938,7 +938,7 @@ class _MoreActionsDialog extends StatelessWidget {
                     onTap: () =>
                         Navigator.of(context).pop(_MoreAction.exportPdf),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
@@ -967,20 +967,20 @@ class _MoreActionTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 48,
+              height: 48,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: AppTheme.brandPrimary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: AppTheme.brandPrimary, size: 20),
+              child: Icon(icon, color: AppTheme.brandPrimary, size: 24),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 18),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -988,22 +988,22 @@ class _MoreActionTile extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 17,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
                       color: AppTheme.slate500,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: AppTheme.slate300),
+            const Icon(Icons.chevron_right, color: AppTheme.slate300, size: 22),
           ],
         ),
       ),
