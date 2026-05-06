@@ -341,8 +341,60 @@ class PlannerPdfExport {
     final typeColor = s.isPost
         ? PdfColor.fromInt(0xFF0EA5E9)
         : PdfColor.fromInt(0xFFF59E0B);
+    final typeBg = PdfColor(
+      typeColor.red,
+      typeColor.green,
+      typeColor.blue,
+      0.12,
+    );
     final initials = _initials(s.assignedUserName);
-    final typeLabel = singleClient ? (s.isPost ? 'Post' : 'Video') : (s.isPost ? 'P' : 'V');
+
+    if (singleClient) {
+      // Mirror the mobile single-client chip: type label centred, initials
+      // small on the right.
+      final typeLabel = s.isPost ? 'Post' : 'Video';
+      return pw.Container(
+        margin: const pw.EdgeInsets.only(top: 1),
+        height: 13,
+        padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: pw.BoxDecoration(
+          color: typeBg,
+          border: pw.Border.all(color: typeColor, width: 0.5),
+          borderRadius: pw.BorderRadius.circular(2),
+        ),
+        child: pw.Stack(
+          alignment: pw.Alignment.center,
+          children: [
+            pw.Center(
+              child: pw.Text(
+                typeLabel,
+                style: pw.TextStyle(
+                  fontSize: 7,
+                  fontWeight: pw.FontWeight.bold,
+                  color: typeColor,
+                ),
+              ),
+            ),
+            pw.Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: pw.Center(
+                child: pw.Text(
+                  initials,
+                  style: pw.TextStyle(
+                    fontSize: 5,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromInt(0xFF334155),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return pw.Container(
       margin: const pw.EdgeInsets.only(top: 1),
       padding: const pw.EdgeInsets.symmetric(horizontal: 2, vertical: 1),
@@ -358,37 +410,31 @@ class PlannerPdfExport {
         mainAxisSize: pw.MainAxisSize.min,
         children: [
           pw.Container(
-            padding: singleClient
-                ? const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 1)
-                : pw.EdgeInsets.zero,
-            width: singleClient ? null : 7,
-            height: singleClient ? null : 7,
+            width: 7,
+            height: 7,
             color: typeColor,
             margin: const pw.EdgeInsets.only(right: 2),
             alignment: pw.Alignment.center,
             child: pw.Text(
-              typeLabel,
+              s.isPost ? 'P' : 'V',
               style: pw.TextStyle(
-                fontSize: singleClient ? 6 : 5,
+                fontSize: 5,
                 fontWeight: pw.FontWeight.bold,
                 color: PdfColors.white,
               ),
             ),
           ),
-          if (!singleClient)
-            pw.Expanded(
-              child: pw.Text(
-                s.clientName ?? 'Client',
-                style: pw.TextStyle(
-                  fontSize: 6,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-                maxLines: 1,
-                overflow: pw.TextOverflow.clip,
+          pw.Expanded(
+            child: pw.Text(
+              s.clientName ?? 'Client',
+              style: pw.TextStyle(
+                fontSize: 6,
+                fontWeight: pw.FontWeight.bold,
               ),
-            )
-          else
-            pw.Spacer(),
+              maxLines: 1,
+              overflow: pw.TextOverflow.clip,
+            ),
+          ),
           pw.SizedBox(width: 2),
           pw.Text(
             initials,

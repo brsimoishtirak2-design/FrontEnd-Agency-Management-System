@@ -145,26 +145,30 @@ class SlotChip extends StatelessWidget {
     required String initials,
   }) {
     return SizedBox(
-      height: dense ? 22 : 26,
+      height: dense ? 24 : 28,
       child: Stack(
-        alignment: Alignment.center,
         children: [
-          Text(
-            typeLabel,
-            style: TextStyle(
-              fontSize: dense ? 13 : 16,
-              fontWeight: FontWeight.w800,
-              color: typeColor,
-              letterSpacing: 0.4,
-              decoration:
-                  slot.isCancelled ? TextDecoration.lineThrough : null,
-              height: 1.1,
+          // Centered label — Align fills the stack and lets the Text find
+          // dead-center both horizontally and vertically.
+          Align(
+            alignment: Alignment.center,
+            child: Text(
+              typeLabel,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: dense ? 13 : 16,
+                fontWeight: FontWeight.w800,
+                color: typeColor,
+                letterSpacing: 0.4,
+                decoration:
+                    slot.isCancelled ? TextDecoration.lineThrough : null,
+                height: 1.0,
+              ),
             ),
           ),
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
+          // Trailing badges, vertically centered against the chip's height.
+          Align(
+            alignment: Alignment.centerRight,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
