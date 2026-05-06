@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/models/monthly_plan.dart';
+import '../../../shared/models/planner_slot.dart';
 import '../../../shared/models/user.dart';
 import '../../admin/data/admin_tasks_providers.dart';
 import '../../auth/data/auth_providers.dart';
@@ -14,6 +15,7 @@ import 'pdf_export.dart';
 import 'widgets/client_filter_strip.dart';
 import 'widgets/month_calendar_grid.dart';
 import 'widgets/plan_clients_editor.dart';
+import 'widgets/slot_chip.dart';
 import 'widgets/slot_edit_sheet.dart';
 
 /// The Schedule tab. Same screen for admin + employee — admin actions are
@@ -293,6 +295,14 @@ class _PlanContent extends ConsumerWidget {
               onSlotMoved: !isAdmin
                   ? null
                   : (slot, newDate) => _moveSlot(context, ref, plan.id, slot, newDate),
+              onOverflowTap: (date, slots) => _showDaySlots(
+                context: context,
+                ref: ref,
+                date: date,
+                slots: slots,
+                planId: plan.id,
+                isAdmin: isAdmin,
+              ),
             ),
           ),
         ),
@@ -301,6 +311,29 @@ class _PlanContent extends ConsumerWidget {
           child: _BottomActions(plan: plan, isAdmin: isAdmin),
         ),
       ],
+    );
+  }
+
+  Future<void> _showDaySlots({
+    required BuildContext context,
+    required WidgetRef ref,
+    required DateTime date,
+    required List<PlannerSlot> slots,
+    required int planId,
+    required bool isAdmin,
+  }) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _DaySlotsSheet(
+        date: date,
+        slots: slots,
+        planId: planId,
+        isAdmin: isAdmin,
+      ),
     );
   }
 
@@ -557,4 +590,118 @@ class _BottomActionsState extends ConsumerState<_BottomActions> {
       if (mounted) setState(() => _busy = false);
     }
   }
+}
+
+/// Bottom sheet listing every slot for a single day. Tap one to open the
+/// edit sheet (admin) — for employees it's read-only.
+class _DaySlotsSheet extends StatelessWidget {
+  final DateTime date;
+  final List<PlannerSlot> slots;
+  final int planId;
+  final bool isAdmin;
+
+  const _DaySlotsSheet({
+    required this.date,
+    required this.slots,
+    required this.planId,
+    required this.isAdmin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dayLabel =
+        '${_weekday(date)}, ${_monthName(date.month)} ${date.day}';
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.slate300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  dayLabel,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.slate100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${slots.length} slot${slots.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.slate700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.55,
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: slots.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 6),
+                itemBuilder: (_, i) {
+                  final s = slots[i];
+                  return SlotChip(
+                    slot: s,
+                    onTap: () async {
+                      Navigator.of(context).pop();
+                      if (!isAdmin) return;
+                      await showModalBottomSheet<bool>(
+                        context: context,
+                        isScrollControlled: true,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        builder: (_) =>
+                            SlotEditSheet(slot: s, planId: planId),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const _weekdayShort = [
+    'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
+  ];
+  String _weekday(DateTime d) => _weekdayShort[d.weekday - 1];
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  String _monthName(int m) => _months[m - 1];
 }

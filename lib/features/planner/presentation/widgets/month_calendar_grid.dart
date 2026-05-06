@@ -20,6 +20,7 @@ class MonthCalendarGrid extends StatelessWidget {
   final void Function(PlannerSlot slot)? onSlotTap;
   final void Function(DateTime date)? onEmptyDayTap;
   final void Function(PlannerSlot slot, DateTime newDate)? onSlotMoved;
+  final void Function(DateTime date, List<PlannerSlot> slots)? onOverflowTap;
   final int? highlightUserId;
 
   const MonthCalendarGrid({
@@ -30,6 +31,7 @@ class MonthCalendarGrid extends StatelessWidget {
     this.onSlotTap,
     this.onEmptyDayTap,
     this.onSlotMoved,
+    this.onOverflowTap,
     this.highlightUserId,
   });
 
@@ -91,6 +93,7 @@ class MonthCalendarGrid extends StatelessWidget {
                   onSlotTap: onSlotTap,
                   onEmptyDayTap: onEmptyDayTap,
                   onSlotMoved: onSlotMoved,
+                  onOverflowTap: onOverflowTap,
                   highlightUserId: highlightUserId,
                 ),
               ],
@@ -161,6 +164,7 @@ class _GridBody extends StatelessWidget {
   final void Function(PlannerSlot slot)? onSlotTap;
   final void Function(DateTime date)? onEmptyDayTap;
   final void Function(PlannerSlot slot, DateTime newDate)? onSlotMoved;
+  final void Function(DateTime date, List<PlannerSlot> slots)? onOverflowTap;
   final int? highlightUserId;
 
   const _GridBody({
@@ -170,6 +174,7 @@ class _GridBody extends StatelessWidget {
     required this.onSlotTap,
     required this.onEmptyDayTap,
     required this.onSlotMoved,
+    required this.onOverflowTap,
     required this.highlightUserId,
   });
 
@@ -189,6 +194,7 @@ class _GridBody extends StatelessWidget {
                 onSlotTap: onSlotTap,
                 onEmptyDayTap: onEmptyDayTap,
                 onSlotMoved: onSlotMoved,
+                onOverflowTap: onOverflowTap,
                 highlightUserId: highlightUserId,
               ),
             );
@@ -223,6 +229,7 @@ class _DayCellWidget extends StatelessWidget {
   final void Function(PlannerSlot slot)? onSlotTap;
   final void Function(DateTime date)? onEmptyDayTap;
   final void Function(PlannerSlot slot, DateTime newDate)? onSlotMoved;
+  final void Function(DateTime date, List<PlannerSlot> slots)? onOverflowTap;
   final int? highlightUserId;
 
   const _DayCellWidget({
@@ -230,6 +237,7 @@ class _DayCellWidget extends StatelessWidget {
     required this.onSlotTap,
     required this.onEmptyDayTap,
     required this.onSlotMoved,
+    required this.onOverflowTap,
     required this.highlightUserId,
   });
 
@@ -254,6 +262,7 @@ class _DayCellWidget extends StatelessWidget {
       cell: cell,
       onSlotTap: onSlotTap,
       onSlotMoved: onSlotMoved,
+      onOverflowTap: onOverflowTap,
       highlightUserId: highlightUserId,
     );
 
@@ -318,12 +327,14 @@ class _CellInterior extends StatelessWidget {
   final _DayCell cell;
   final void Function(PlannerSlot slot)? onSlotTap;
   final void Function(PlannerSlot slot, DateTime newDate)? onSlotMoved;
+  final void Function(DateTime date, List<PlannerSlot> slots)? onOverflowTap;
   final int? highlightUserId;
 
   const _CellInterior({
     required this.cell,
     required this.onSlotTap,
     required this.onSlotMoved,
+    required this.onOverflowTap,
     required this.highlightUserId,
   });
 
@@ -417,7 +428,7 @@ class _CellInterior extends StatelessWidget {
     }
     if (overflow > 0) {
       children.add(const SizedBox(height: 2));
-      children.add(_overflowBadge(overflow));
+      children.add(_overflowBadge(overflow, slots));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -471,20 +482,31 @@ class _CellInterior extends StatelessWidget {
     );
   }
 
-  Widget _overflowBadge(int count) {
-    return Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      decoration: BoxDecoration(
-        color: AppTheme.slate100,
+  Widget _overflowBadge(int count, List<PlannerSlot> allSlots) {
+    final tap = onOverflowTap;
+    final date = cell.date;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: (tap == null || date == null)
+            ? null
+            : () => tap(date, allSlots),
         borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        '+$count more',
-        style: const TextStyle(
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
-          color: AppTheme.slate700,
+        child: Container(
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          decoration: BoxDecoration(
+            color: AppTheme.slate100,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            '+$count more',
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.slate700,
+            ),
+          ),
         ),
       ),
     );
