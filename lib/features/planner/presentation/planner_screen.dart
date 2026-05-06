@@ -346,12 +346,21 @@ class _PlanContentState extends ConsumerState<_PlanContent> {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: _DayExpanderPanel(
-                    date: _expandedDate!,
-                    slots: expandedSlots,
-                    planId: plan.id,
-                    isAdmin: widget.isAdmin,
-                    onClose: _closeExpander,
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 560),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: _DayExpanderPanel(
+                          date: _expandedDate!,
+                          slots: expandedSlots,
+                          planId: plan.id,
+                          isAdmin: widget.isAdmin,
+                          onClose: _closeExpander,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -646,10 +655,11 @@ class _DayExpanderPanel extends ConsumerWidget {
     final maxHeight = MediaQuery.of(context).size.height * 0.45;
 
     return Material(
-      elevation: 12,
-      shadowColor: Colors.black.withValues(alpha: 0.15),
+      elevation: 16,
+      shadowColor: Colors.black.withValues(alpha: 0.25),
       color: Colors.white,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
         child: ConstrainedBox(
