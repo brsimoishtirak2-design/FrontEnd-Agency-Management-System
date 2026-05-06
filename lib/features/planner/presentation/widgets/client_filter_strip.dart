@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/models/monthly_plan.dart';
 import '../../data/planner_providers.dart';
+import 'client_avatar.dart';
 
 /// Horizontal chip row at the top of the planner: "All" + one chip per client
 /// in the plan. Tapping a chip filters the calendar to just that client.
@@ -28,14 +29,20 @@ class ClientFilterStrip extends ConsumerWidget {
             onTap: () => ref.read(plannerClientFilterProvider.notifier).state = null,
           ),
           ...plan.planClients.map((c) {
+            final name = c.clientName ?? 'Client #${c.clientId}';
             return Padding(
               padding: const EdgeInsets.only(left: 6),
               child: _Chip(
-                label: c.clientName ?? 'Client #${c.clientId}',
+                label: name,
                 selected: selectedId == c.clientId,
                 onTap: () => ref.read(plannerClientFilterProvider.notifier).state =
                     c.clientId,
                 trailing: '${c.totalCount}',
+                leading: ClientAvatar(
+                  name: name,
+                  logoUrl: c.clientLogo,
+                  size: 22,
+                ),
               ),
             );
           }),
@@ -50,12 +57,14 @@ class _Chip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final String? trailing;
+  final Widget? leading;
 
   const _Chip({
     required this.label,
     required this.selected,
     required this.onTap,
     this.trailing,
+    this.leading,
   });
 
   @override
@@ -65,7 +74,12 @@ class _Chip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: EdgeInsets.fromLTRB(
+            leading != null ? 4 : 14,
+            6,
+            14,
+            6,
+          ),
           decoration: BoxDecoration(
             color: selected ? AppTheme.brandPrimary : Colors.white,
             border: Border.all(
@@ -76,6 +90,10 @@ class _Chip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (leading != null) ...[
+                leading!,
+                const SizedBox(width: 8),
+              ],
               Text(
                 label,
                 style: TextStyle(
