@@ -478,89 +478,77 @@ class _BottomActionsState extends ConsumerState<_BottomActions> {
         color: Colors.white,
         border: Border(top: BorderSide(color: AppTheme.slate200, width: 1)),
       ),
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // On narrow phones, the Generate button collapses to icon-only so
-          // the primary CTA always stays fully visible.
-          final isNarrow = constraints.maxWidth < 420;
-
-          final secondaries = [
-            IconButton(
-              tooltip: 'Manage clients',
-              onPressed: _busy ? null : _openClients,
-              icon: const Icon(Icons.business),
-              visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Row(
+        children: [
+          const Spacer(),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _openMoreActions,
+            icon: const Icon(Icons.tune, size: 18),
+            label: const Text('More'),
+            style: OutlinedButton.styleFrom(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
-            IconButton(
-              tooltip: 'Export PDF',
-              onPressed: _busy ? null : _exportPdf,
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              visualDensity: VisualDensity.compact,
-            ),
-          ];
-
-          if (!widget.plan.isDraft && !widget.plan.isConfirmed) {
-            return Row(children: secondaries);
-          }
-
-          final generateBtn = isNarrow
-              ? IconButton(
-                  tooltip: 'Generate',
-                  onPressed:
-                      _busy ? null : () => _runGenerate(rebalance: false),
-                  icon: const Icon(Icons.auto_awesome),
-                  visualDensity: VisualDensity.compact,
-                )
-              : OutlinedButton.icon(
-                  onPressed:
-                      _busy ? null : () => _runGenerate(rebalance: false),
-                  icon: const Icon(Icons.auto_awesome, size: 18),
-                  label: const Text('Generate'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+          ),
+          if (widget.plan.isDraft || widget.plan.isConfirmed) ...[
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              onPressed: _busy ? null : _confirm,
+              icon: _busy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Icon(
+                      widget.plan.isDraft ? Icons.check : Icons.update,
+                      size: 18,
                     ),
-                  ),
-                );
-
-          final confirmBtn = FilledButton.icon(
-            onPressed: _busy ? null : _confirm,
-            icon: _busy
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : Icon(
-                    widget.plan.isDraft ? Icons.check : Icons.update,
-                    size: 18,
-                  ),
-            label: Text(widget.plan.isDraft ? 'Confirm' : 'Apply'),
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
+              label: Text(widget.plan.isDraft ? 'Confirm' : 'Apply'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
               ),
             ),
-          );
-
-          return Row(
-            children: [
-              ...secondaries,
-              const Spacer(),
-              generateBtn,
-              const SizedBox(width: 6),
-              confirmBtn,
-            ],
-          );
-        },
+          ],
+        ],
       ),
     );
+  }
+
+  Future<void> _openMoreActions() async {
+    final selected = await showGeneralDialog<_MoreAction>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'More actions',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (_, _, _) => const _MoreActionsDialog(),
+      transitionBuilder: (ctx, anim, _, child) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: 6 * anim.value,
+            sigmaY: 6 * anim.value,
+          ),
+          child: FadeTransition(opacity: anim, child: child),
+        );
+      },
+    );
+    if (selected == null) return;
+    switch (selected) {
+      case _MoreAction.generate:
+        await _runGenerate(rebalance: false);
+      case _MoreAction.manageClients:
+        await _openClients();
+      case _MoreAction.exportPdf:
+        await _exportPdf();
+    }
   }
 
   Future<void> _openClients() async {
@@ -891,4 +879,134 @@ class _DayExpanderPanel extends ConsumerWidget {
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
   String _monthName(int m) => _months[m - 1];
+}
+
+/// Action picked from the bottom-bar More dialog.
+enum _MoreAction { generate, manageClients, exportPdf }
+
+class _MoreActionsDialog extends StatelessWidget {
+  const _MoreActionsDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Material(
+            color: Colors.white,
+            elevation: 16,
+            shadowColor: Colors.black.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(20),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
+                    child: Text(
+                      'Plan actions',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 12, color: AppTheme.slate100),
+                  _MoreActionTile(
+                    icon: Icons.auto_awesome,
+                    title: 'Generate',
+                    subtitle: 'Auto-place slots, respecting locks and caps',
+                    onTap: () =>
+                        Navigator.of(context).pop(_MoreAction.generate),
+                  ),
+                  _MoreActionTile(
+                    icon: Icons.business_outlined,
+                    title: 'Manage clients',
+                    subtitle: 'Add, edit, or remove client commitments',
+                    onTap: () =>
+                        Navigator.of(context).pop(_MoreAction.manageClients),
+                  ),
+                  _MoreActionTile(
+                    icon: Icons.picture_as_pdf_outlined,
+                    title: 'Export PDF',
+                    subtitle: 'Landscape calendar to print or share',
+                    onTap: () =>
+                        Navigator.of(context).pop(_MoreAction.exportPdf),
+                  ),
+                  const SizedBox(height: 6),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MoreActionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _MoreActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppTheme.brandPrimary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: AppTheme.brandPrimary, size: 20),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.slate500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppTheme.slate300),
+          ],
+        ),
+      ),
+    );
+  }
 }
