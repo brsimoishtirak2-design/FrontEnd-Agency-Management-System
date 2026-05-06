@@ -255,7 +255,7 @@ class PlannerPdfExport {
   static pw.TableRow _headerRow() {
     const labels = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
     return pw.TableRow(
-      decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFF1F5F9)),
+      decoration: pw.BoxDecoration(color: PdfColor.fromInt(0xFFE2E8F0)),
       children: labels
           .map((l) => pw.Padding(
                 padding: const pw.EdgeInsets.symmetric(vertical: 4),
@@ -266,8 +266,8 @@ class PlannerPdfExport {
                     fontSize: 9,
                     fontWeight: pw.FontWeight.bold,
                     color: l == 'Fri'
-                        ? PdfColor.fromInt(0xFFCBD5E1)
-                        : PdfColor.fromInt(0xFF334155),
+                        ? PdfColor.fromInt(0xFF64748B)
+                        : PdfColor.fromInt(0xFF1E293B),
                   ),
                 ),
               ))
@@ -278,7 +278,7 @@ class PlannerPdfExport {
   static pw.Widget _blankCell() {
     return pw.Container(
       height: 65,
-      color: PdfColor.fromInt(0xFFF8FAFC),
+      color: PdfColor.fromInt(0xFFF1F5F9),
     );
   }
 
@@ -290,7 +290,7 @@ class PlannerPdfExport {
   }) {
     return pw.Container(
       height: 65,
-      color: isFri ? PdfColor.fromInt(0xFFF8FAFC) : PdfColors.white,
+      color: isFri ? PdfColor.fromInt(0xFFE2E8F0) : PdfColors.white,
       padding: const pw.EdgeInsets.all(3),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -301,7 +301,7 @@ class PlannerPdfExport {
               fontSize: 9,
               fontWeight: pw.FontWeight.bold,
               color: isFri
-                  ? PdfColor.fromInt(0xFFCBD5E1)
+                  ? PdfColor.fromInt(0xFF64748B)
                   : PdfColor.fromInt(0xFF334155),
             ),
           ),
@@ -311,9 +311,10 @@ class PlannerPdfExport {
                 child: pw.Text(
                   'OFF',
                   style: pw.TextStyle(
-                    fontSize: 8,
+                    fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromInt(0xFFCBD5E1),
+                    color: PdfColor.fromInt(0xFF64748B),
+                    letterSpacing: 1,
                   ),
                 ),
               ),
