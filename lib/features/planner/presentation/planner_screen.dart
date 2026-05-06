@@ -323,6 +323,7 @@ class _PlanContentState extends ConsumerState<_PlanContent> {
                     month: plan.month,
                     slots: filteredSlots,
                     highlightUserId: widget.currentUserId,
+                    singleClientFilter: filterClientId != null,
                     onSlotTap: (slot) async {
                       if (!widget.isAdmin) return;
                       await showModalBottomSheet<bool>(
