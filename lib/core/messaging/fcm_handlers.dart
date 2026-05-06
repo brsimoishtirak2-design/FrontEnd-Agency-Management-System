@@ -195,6 +195,15 @@ class _FcmHandlersState extends ConsumerState<FcmHandlers>
       'task_approved',
       'task_cancelled',
       'task_updated',
+      // Reassignment + leadership changes mutate the assignee set; both the
+      // gainer and the loser need their list refreshed.
+      'task_reassigned_in',
+      'task_reassigned_out',
+      'leader_changed',
+      // Deadline-driven nudges still imply the task row state changed
+      // (overdue badge, etc.).
+      'task_overdue',
+      'deadline_reminder',
       // Planner pushes affect the same task lists — confirming a plan or
       // editing a confirmed plan creates/changes Tasks for the assignees.
       'planner_initial',

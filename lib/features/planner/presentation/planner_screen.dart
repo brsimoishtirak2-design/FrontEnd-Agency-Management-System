@@ -414,7 +414,7 @@ class _BottomActionsState extends ConsumerState<_BottomActions> {
   Future<void> _openClients() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => PlanClientsEditor(plan: widget.plan),
+        builder: (_) => PlanClientsEditor(initialPlan: widget.plan),
       ),
     );
   }

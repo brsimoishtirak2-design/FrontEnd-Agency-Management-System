@@ -41,7 +41,7 @@ class SlotChip extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.symmetric(
             horizontal: dense ? 4 : 6,
-            vertical: dense ? 2 : 3,
+            vertical: dense ? 1 : 3,
           ),
           decoration: BoxDecoration(
             color: bg,

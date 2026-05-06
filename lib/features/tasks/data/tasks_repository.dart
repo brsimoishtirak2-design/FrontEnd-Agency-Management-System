@@ -17,10 +17,13 @@ class TasksRepository {
   /// Returns the current employee's assigned tasks. Backend response is a
   /// Laravel paginated wrapper — we extract the `data` array.
   ///
-  /// For now we ignore pagination metadata (current_page, total, etc.) since
-  /// employees typically have <20 tasks. Will add pagination support later.
+  /// We request `per_page=200` so a planner-heavy month (one task per slot)
+  /// fits in a single fetch. Backend caps at 500.
   Future<List<Task>> listMyTasks() async {
-    final response = await _api.get<Map<String, dynamic>>('/tasks');
+    final response = await _api.get<Map<String, dynamic>>(
+      '/tasks',
+      query: {'per_page': 200},
+    );
 
     final body = response.data;
     if (body == null) {

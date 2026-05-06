@@ -19,6 +19,7 @@ import '../../../shared/widgets/app_list_row.dart';
 import '../../../shared/widgets/client_avatar.dart';
 import '../../../shared/widgets/task_unseen_badges.dart';
 import '../data/tasks_providers.dart';
+import 'widgets/task_time_filter_strip.dart';
 
 /// Home screen — shows the current user's task list.
 ///
@@ -47,6 +48,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tasksAsync = ref.watch(myTasksProvider);
+    final filter = ref.watch(taskTimeFilterProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -59,7 +61,12 @@ class HomeScreen extends ConsumerWidget {
         child: tasksAsync.when(
           loading: () => Skeletonizer(
             enabled: true,
-            child: _MyTasksPanel(tasks: _skeletonRows),
+            child: Column(
+              children: [
+                const TaskTimeFilterStrip(),
+                Expanded(child: _MyTasksPanel(tasks: _skeletonRows)),
+              ],
+            ),
           ),
           error: (error, _) => ListView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -72,33 +79,107 @@ class HomeScreen extends ConsumerWidget {
             ],
           ),
           data: (tasks) {
-            if (tasks.isEmpty) {
-              return LayoutBuilder(
-                builder: (context, constraints) => SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight,
-                    ),
-                    child: const Center(
-                      child: AppEmptyState(
-                        icon: Icons.inbox_outlined,
-                        title: 'No tasks assigned',
-                        subtitle:
-                            "You're all caught up. New tasks will appear here.",
-                      ),
-                    ),
-                  ),
+            final counts = _bucketCounts(tasks);
+            final filtered = _applyFilter(tasks, filter);
+
+            return Column(
+              children: [
+                TaskTimeFilterStrip(counts: counts),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? LayoutBuilder(
+                          builder: (context, constraints) =>
+                              SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight,
+                              ),
+                              child: Center(
+                                child: AppEmptyState(
+                                  icon: Icons.inbox_outlined,
+                                  title: tasks.isEmpty
+                                      ? 'No tasks assigned'
+                                      : 'Nothing for ${filter.label.toLowerCase()}',
+                                  subtitle: tasks.isEmpty
+                                      ? "You're all caught up. New tasks will appear here."
+                                      : 'Try a different filter to see other tasks.',
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      : AppEnter(child: _MyTasksPanel(tasks: filtered)),
                 ),
-              );
-            }
-            return AppEnter(
-              child: _MyTasksPanel(tasks: tasks),
+              ],
             );
           },
         ),
       ),
     );
+  }
+
+  /// Apply the time filter. Tasks with no deadline date are visible only
+  /// under [TaskTimeFilter.all]; date-bound filters drop them.
+  List<Task> _applyFilter(List<Task> tasks, TaskTimeFilter filter) {
+    if (filter == TaskTimeFilter.all) return tasks;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    bool inRange(DateTime d) {
+      switch (filter) {
+        case TaskTimeFilter.today:
+          return d == today;
+        case TaskTimeFilter.week:
+          // rolling 7 days from today (inclusive)
+          final end = today.add(const Duration(days: 6));
+          return !d.isBefore(today) && !d.isAfter(end);
+        case TaskTimeFilter.month:
+          return d.year == today.year && d.month == today.month;
+        case TaskTimeFilter.all:
+          return true;
+      }
+    }
+
+    return tasks.where((t) {
+      final raw = t.deadlineDate;
+      if (raw == null || raw.isEmpty) return false;
+      final parsed = DateTime.tryParse(raw);
+      if (parsed == null) return false;
+      final dateOnly = DateTime(parsed.year, parsed.month, parsed.day);
+      return inRange(dateOnly);
+    }).toList();
+  }
+
+  /// Counts of how many tasks fall into each time bucket — drives the
+  /// little number badges on the filter chips.
+  Map<TaskTimeFilter, int> _bucketCounts(List<Task> tasks) {
+    final result = <TaskTimeFilter, int>{
+      TaskTimeFilter.all: tasks.length,
+      TaskTimeFilter.today: 0,
+      TaskTimeFilter.week: 0,
+      TaskTimeFilter.month: 0,
+    };
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final weekEnd = today.add(const Duration(days: 6));
+
+    for (final t in tasks) {
+      final raw = t.deadlineDate;
+      if (raw == null || raw.isEmpty) continue;
+      final parsed = DateTime.tryParse(raw);
+      if (parsed == null) continue;
+      final d = DateTime(parsed.year, parsed.month, parsed.day);
+      if (d == today) result[TaskTimeFilter.today] = result[TaskTimeFilter.today]! + 1;
+      if (!d.isBefore(today) && !d.isAfter(weekEnd)) {
+        result[TaskTimeFilter.week] = result[TaskTimeFilter.week]! + 1;
+      }
+      if (d.year == today.year && d.month == today.month) {
+        result[TaskTimeFilter.month] = result[TaskTimeFilter.month]! + 1;
+      }
+    }
+    return result;
   }
 }
 

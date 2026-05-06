@@ -31,7 +31,7 @@ class AdminTasksRepository {
     String? search,
     bool includeCompleted = false,
   }) async {
-    final query = <String, dynamic>{};
+    final query = <String, dynamic>{'per_page': 200};
     if (statusFilter != null) query['status'] = statusFilter.wireValue;
     final trimmedSearch = search?.trim() ?? '';
     if (trimmedSearch.isNotEmpty) query['search'] = trimmedSearch;
