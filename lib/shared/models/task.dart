@@ -123,9 +123,15 @@ class Task {
   // --- Convenience getters ---
 
   /// The leader of this task, if any (the assignee allowed to submit).
+  ///
+  /// Only considers ACTIVE assignments — when a leader is reassigned (via
+  /// the planner or the admin assignment screen), the previous leader's
+  /// row stays in the assignments list with is_active=false. Without the
+  /// active filter we'd return the stale row and the new leader would
+  /// silently lose access to Start / Submit / Re-progress.
   TaskAssignment? get leader {
     for (final a in assignments) {
-      if (a.isLeader) return a;
+      if (a.isLeader && a.isActive) return a;
     }
     return null;
   }
