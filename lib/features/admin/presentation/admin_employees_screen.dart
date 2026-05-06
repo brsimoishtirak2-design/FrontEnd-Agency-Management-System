@@ -116,6 +116,7 @@ class _AdminEmployeesScreenState
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'admin_employees_fab',
         onPressed: () => context.push(AppRoute.adminCreateEmployee),
         icon: const Icon(LucideIcons.userPlus),
         label: const Text('Add Employee'),

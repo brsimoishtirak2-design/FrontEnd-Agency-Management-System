@@ -106,6 +106,7 @@ class _AdminJobTitlesScreenState
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'admin_job_titles_fab',
         onPressed: () => context.push(AppRoute.adminCreateJobTitle),
         icon: const Icon(LucideIcons.plus),
         label: const Text('Add Job Title'),

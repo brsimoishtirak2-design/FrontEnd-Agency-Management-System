@@ -147,6 +147,7 @@ class AdminTasksScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'admin_tasks_fab',
         onPressed: () => context.push(AppRoute.adminCreateTask),
         icon: const Icon(LucideIcons.plus),
         label: const Text('New Task'),

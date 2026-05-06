@@ -108,6 +108,7 @@ class _AdminLocationsScreenState extends ConsumerState<AdminLocationsScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'admin_locations_fab',
         onPressed: () => context.push(AppRoute.adminCreateLocation),
         icon: const Icon(LucideIcons.plus),
         label: const Text('Add Location'),

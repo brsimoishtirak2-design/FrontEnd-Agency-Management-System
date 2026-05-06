@@ -108,6 +108,7 @@ class _AdminDepartmentsScreenState
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'admin_departments_fab',
         onPressed: () => context.push(AppRoute.adminCreateDepartment),
         icon: const Icon(LucideIcons.plus),
         label: const Text('Add Department'),

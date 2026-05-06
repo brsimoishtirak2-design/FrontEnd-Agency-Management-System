@@ -110,6 +110,7 @@ class _AdminClientsScreenState extends ConsumerState<AdminClientsScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'admin_clients_fab',
         onPressed: () => context.push(AppRoute.adminCreateClient),
         icon: const Icon(LucideIcons.plus),
         label: const Text('New Client'),

@@ -387,59 +387,7 @@ class _CellInterior extends StatelessWidget {
                       ),
                     ),
                   )
-                : ListView.separated(
-                    padding: EdgeInsets.zero,
-                    physics: const ClampingScrollPhysics(),
-                    itemCount: cell.slots.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 2),
-                    itemBuilder: (_, idx) {
-                      final s = cell.slots[idx];
-                      final isMine = highlightUserId != null &&
-                          s.assignedUserId == highlightUserId;
-                      final chip = SlotChip(
-                        slot: s,
-                        dense: true,
-                        onTap: () => onSlotTap?.call(s),
-                      );
-                      final wrapped = Container(
-                        decoration: isMine
-                            ? BoxDecoration(
-                                borderRadius: BorderRadius.circular(7),
-                                border: Border.all(
-                                  color: AppTheme.brandPrimary,
-                                  width: 1.5,
-                                ),
-                              )
-                            : null,
-                        padding: isMine ? const EdgeInsets.all(1) : null,
-                        child: chip,
-                      );
-                      if (!canDrag) return wrapped;
-                      return LongPressDraggable<PlannerSlot>(
-                        data: s,
-                        delay: const Duration(milliseconds: 250),
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: Container(
-                            constraints: const BoxConstraints(maxWidth: 180),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(7),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.18),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: SlotChip(slot: s, dense: false),
-                          ),
-                        ),
-                        childWhenDragging: Opacity(opacity: 0.3, child: wrapped),
-                        child: wrapped,
-                      );
-                    },
-                  ),
+                : _buildSlotsList(cell.slots, canDrag),
           ),
         ],
       ),
@@ -449,5 +397,95 @@ class _CellInterior extends StatelessWidget {
   bool _isToday(DateTime d) {
     final now = DateTime.now();
     return d.year == now.year && d.month == now.month && d.day == now.day;
+  }
+
+  /// Lightweight slot stack — no ListView (avoids spinning up a viewport per
+  /// cell). At most 4 chips render; the rest collapse into a "+N more" tag.
+  Widget _buildSlotsList(List<PlannerSlot> slots, bool canDrag) {
+    if (slots.isEmpty) return const SizedBox.shrink();
+    const maxVisible = 4;
+    final visible = slots.length <= maxVisible
+        ? slots
+        : slots.take(maxVisible - 1).toList();
+    final overflow = slots.length - visible.length;
+
+    final children = <Widget>[];
+    for (var i = 0; i < visible.length; i++) {
+      if (i > 0) children.add(const SizedBox(height: 2));
+      children.add(_buildChip(visible[i], canDrag));
+    }
+    if (overflow > 0) {
+      children.add(const SizedBox(height: 2));
+      children.add(_overflowBadge(overflow));
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: children,
+    );
+  }
+
+  Widget _buildChip(PlannerSlot s, bool canDrag) {
+    final isMine =
+        highlightUserId != null && s.assignedUserId == highlightUserId;
+    final chip = SlotChip(
+      slot: s,
+      dense: true,
+      onTap: () => onSlotTap?.call(s),
+    );
+    final wrapped = isMine
+        ? Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: AppTheme.brandPrimary, width: 1.5),
+            ),
+            padding: const EdgeInsets.all(1),
+            child: chip,
+          )
+        : chip;
+
+    if (!canDrag) return wrapped;
+    return LongPressDraggable<PlannerSlot>(
+      data: s,
+      delay: const Duration(milliseconds: 250),
+      feedback: Material(
+        color: Colors.transparent,
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 180),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(7),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: SlotChip(slot: s, dense: false),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.3, child: wrapped),
+      child: wrapped,
+    );
+  }
+
+  Widget _overflowBadge(int count) {
+    return Container(
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        color: AppTheme.slate100,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '+$count more',
+        style: const TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.slate700,
+        ),
+      ),
+    );
   }
 }

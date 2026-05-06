@@ -208,6 +208,7 @@ class _AdminClientDetailScreenState
         data: (client) => client.isArchived
             ? null
             : FloatingActionButton.extended(
+                heroTag: 'admin_client_detail_fab',
                 onPressed: () => context.push(
                   AppRoute.adminAddBranchToClientPath(client.id),
                 ),
