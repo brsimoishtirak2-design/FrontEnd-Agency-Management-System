@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -355,21 +357,46 @@ class _PlanContentState extends ConsumerState<_PlanContent> {
                     ignoring: _isDraggingFromPanel,
                     child: Opacity(
                       opacity: _isDraggingFromPanel ? 0.0 : 1.0,
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 760),
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: _DayExpanderPanel(
-                              date: _expandedDate!,
-                              slots: expandedSlots,
-                              planId: plan.id,
-                              isAdmin: widget.isAdmin,
-                              onClose: _closeExpander,
-                              onDragStateChange: _onPanelDragStateChange,
+                      child: Stack(
+                        children: [
+                          // Backdrop — light blur + darken the calendar so the
+                          // dialog stands out. Tap dismisses.
+                          Positioned.fill(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: _closeExpander,
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(
+                                  sigmaX: 4,
+                                  sigmaY: 4,
+                                ),
+                                child: Container(
+                                  color: Colors.black
+                                      .withValues(alpha: 0.35),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          // The dialog itself.
+                          Center(
+                            child: ConstrainedBox(
+                              constraints:
+                                  const BoxConstraints(maxWidth: 760),
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: _DayExpanderPanel(
+                                  date: _expandedDate!,
+                                  slots: expandedSlots,
+                                  planId: plan.id,
+                                  isAdmin: widget.isAdmin,
+                                  onClose: _closeExpander,
+                                  onDragStateChange:
+                                      _onPanelDragStateChange,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
