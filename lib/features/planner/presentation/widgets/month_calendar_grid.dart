@@ -250,15 +250,16 @@ class _DayCellWidget extends StatelessWidget {
     final date = cell.date!;
     final canDrop = !cell.isFriday && onSlotMoved != null;
 
-    Widget content = _CellInterior(
+    final Widget interior = _CellInterior(
       cell: cell,
       onSlotTap: onSlotTap,
       onSlotMoved: onSlotMoved,
       highlightUserId: highlightUserId,
     );
 
+    Widget framed;
     if (canDrop) {
-      content = DragTarget<PlannerSlot>(
+      framed = DragTarget<PlannerSlot>(
         onWillAcceptWithDetails: (details) {
           // Don't accept dropping a slot back onto its own date
           return details.data.slotDate.day != date.day ||
@@ -286,12 +287,12 @@ class _DayCellWidget extends StatelessWidget {
                     : BorderSide.none,
               ),
             ),
-            child: content,
+            child: interior,
           );
         },
       );
     } else {
-      content = Container(
+      framed = Container(
         decoration: BoxDecoration(
           color: cell.isFriday ? AppTheme.slate50 : Colors.white,
           border: const Border(
@@ -299,16 +300,16 @@ class _DayCellWidget extends StatelessWidget {
             bottom: BorderSide(color: AppTheme.slate100, width: 1),
           ),
         ),
-        child: content,
+        child: interior,
       );
     }
 
     if (cell.isFriday) {
-      return content;
+      return framed;
     }
     return InkWell(
       onTap: () => onEmptyDayTap?.call(date),
-      child: content,
+      child: framed,
     );
   }
 }
