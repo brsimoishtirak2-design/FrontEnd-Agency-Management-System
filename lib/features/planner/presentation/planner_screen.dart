@@ -250,7 +250,7 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
-class _PlanContent extends ConsumerWidget {
+class _PlanContent extends ConsumerStatefulWidget {
   final MonthlyPlan plan;
   final bool isAdmin;
   final int? currentUserId;
@@ -262,80 +262,106 @@ class _PlanContent extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PlanContent> createState() => _PlanContentState();
+}
+
+class _PlanContentState extends ConsumerState<_PlanContent> {
+  DateTime? _expandedDate;
+
+  void _expandDay(DateTime date) {
+    setState(() => _expandedDate = date);
+  }
+
+  void _closeExpander() {
+    setState(() => _expandedDate = null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = widget.plan;
     final filterClientId = ref.watch(plannerClientFilterProvider);
     final filteredSlots = filterClientId == null
         ? plan.slots
         : plan.slots.where((s) => s.clientId == filterClientId).toList();
+
+    // Day expander state — when set, the panel renders above the bottom of
+    // the calendar and shares the same widget tree so drag-and-drop from a
+    // chip in the panel onto a calendar cell stays alive.
+    final expandedSlots = _expandedDate == null
+        ? const <PlannerSlot>[]
+        : filteredSlots
+            .where((s) =>
+                s.slotDate.year == _expandedDate!.year &&
+                s.slotDate.month == _expandedDate!.month &&
+                s.slotDate.day == _expandedDate!.day)
+            .toList();
 
     return Column(
       children: [
         ClientFilterStrip(plan: plan),
         const Divider(height: 1, thickness: 1, color: AppTheme.slate200),
         Expanded(
-          child: SingleChildScrollView(
-            child: MonthCalendarGrid(
-              year: plan.year,
-              month: plan.month,
-              slots: filteredSlots,
-              highlightUserId: currentUserId,
-              onSlotTap: (slot) async {
-                if (!isAdmin) return;
-                await showModalBottomSheet<bool>(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.white,
-                  shape: const RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(20)),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: SingleChildScrollView(
+                  child: MonthCalendarGrid(
+                    year: plan.year,
+                    month: plan.month,
+                    slots: filteredSlots,
+                    highlightUserId: widget.currentUserId,
+                    onSlotTap: (slot) async {
+                      if (!widget.isAdmin) return;
+                      await showModalBottomSheet<bool>(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.white,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        builder: (_) =>
+                            SlotEditSheet(slot: slot, planId: plan.id),
+                      );
+                    },
+                    onSlotMoved: !widget.isAdmin
+                        ? null
+                        : (slot, newDate) {
+                            _moveSlot(
+                              context,
+                              ref,
+                              plan.id,
+                              slot,
+                              newDate,
+                            );
+                            // Close the expander after a successful drop.
+                            if (_expandedDate != null) _closeExpander();
+                          },
+                    onOverflowTap: (date, _) => _expandDay(date),
                   ),
-                  builder: (_) =>
-                      SlotEditSheet(slot: slot, planId: plan.id),
-                );
-              },
-              onSlotMoved: !isAdmin
-                  ? null
-                  : (slot, newDate) => _moveSlot(context, ref, plan.id, slot, newDate),
-              onOverflowTap: (date, slots) => _showDaySlots(
-                context: context,
-                ref: ref,
-                date: date,
-                slots: slots,
-                planId: plan.id,
-                isAdmin: isAdmin,
+                ),
               ),
-            ),
+              if (_expandedDate != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: _DayExpanderPanel(
+                    date: _expandedDate!,
+                    slots: expandedSlots,
+                    planId: plan.id,
+                    isAdmin: widget.isAdmin,
+                    onClose: _closeExpander,
+                  ),
+                ),
+            ],
           ),
         ),
         SafeArea(
           top: false,
-          child: _BottomActions(plan: plan, isAdmin: isAdmin),
+          child: _BottomActions(plan: plan, isAdmin: widget.isAdmin),
         ),
       ],
-    );
-  }
-
-  Future<void> _showDaySlots({
-    required BuildContext context,
-    required WidgetRef ref,
-    required DateTime date,
-    required List<PlannerSlot> slots,
-    required int planId,
-    required bool isAdmin,
-  }) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _DaySlotsSheet(
-        date: date,
-        slots: slots,
-        planId: planId,
-        isAdmin: isAdmin,
-      ),
     );
   }
 
@@ -594,161 +620,169 @@ class _BottomActionsState extends ConsumerState<_BottomActions> {
   }
 }
 
-/// Bottom sheet listing every slot for a single day. Tap a chip to open
-/// the edit sheet, or tap the move icon to jump straight to a date
-/// picker so admins can reschedule with two taps.
-class _DaySlotsSheet extends ConsumerWidget {
+/// Inline panel that overlays the bottom of the calendar to show every
+/// slot for one day. Lives inside the calendar's widget tree (not a modal
+/// route), so a [LongPressDraggable] chip inside the panel can be dragged
+/// directly onto a calendar cell behind it — both share the same Overlay.
+class _DayExpanderPanel extends ConsumerWidget {
   final DateTime date;
   final List<PlannerSlot> slots;
   final int planId;
   final bool isAdmin;
+  final VoidCallback onClose;
 
-  const _DaySlotsSheet({
+  const _DayExpanderPanel({
     required this.date,
     required this.slots,
     required this.planId,
     required this.isAdmin,
+    required this.onClose,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dayLabel =
         '${_weekday(date)}, ${_monthName(date.month)} ${date.day}';
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.slate300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
+    final maxHeight = MediaQuery.of(context).size.height * 0.45;
+
+    return Material(
+      elevation: 12,
+      shadowColor: Colors.black.withValues(alpha: 0.15),
+      color: Colors.white,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      child: SafeArea(
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 8, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  dayLabel,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Text(
+                            dayLabel,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.slate100,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${slots.length} slot${slots.length == 1 ? '' : 's'}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.slate700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: onClose,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.slate100,
-                    borderRadius: BorderRadius.circular(10),
+                if (isAdmin)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12, bottom: 6),
+                    child: Text(
+                      'Hold a chip and drag onto a date in the calendar above to move it.',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.slate500,
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    '${slots.length} slot${slots.length == 1 ? '' : 's'}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.slate700,
+                Flexible(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.only(bottom: 4),
+                      itemCount: slots.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 6),
+                      itemBuilder: (_, i) {
+                        final s = slots[i];
+                        final chip = SlotChip(
+                          slot: s,
+                          onTap: !isAdmin
+                              ? null
+                              : () async {
+                                  await showModalBottomSheet<bool>(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    backgroundColor: Colors.white,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(20),
+                                      ),
+                                    ),
+                                    builder: (_) => SlotEditSheet(
+                                      slot: s,
+                                      planId: planId,
+                                    ),
+                                  );
+                                },
+                        );
+                        if (!isAdmin) return chip;
+                        return LongPressDraggable<PlannerSlot>(
+                          data: s,
+                          delay: const Duration(milliseconds: 200),
+                          feedback: Material(
+                            color: Colors.transparent,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 240),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.18),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: SlotChip(slot: s),
+                              ),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.3,
+                            child: chip,
+                          ),
+                          child: chip,
+                        );
+                      },
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.55,
-              ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: slots.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 6),
-                itemBuilder: (_, i) {
-                  final s = slots[i];
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: SlotChip(
-                          slot: s,
-                          onTap: () async {
-                            Navigator.of(context).pop();
-                            if (!isAdmin) return;
-                            await showModalBottomSheet<bool>(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.white,
-                              shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.vertical(
-                                  top: Radius.circular(20),
-                                ),
-                              ),
-                              builder: (_) =>
-                                  SlotEditSheet(slot: s, planId: planId),
-                            );
-                          },
-                        ),
-                      ),
-                      if (isAdmin) ...[
-                        const SizedBox(width: 8),
-                        IconButton(
-                          tooltip: 'Move to another date',
-                          icon: const Icon(Icons.event_repeat, size: 20),
-                          onPressed: () => _moveSlot(context, ref, s),
-                          visualDensity: VisualDensity.compact,
-                          color: AppTheme.brandPrimary,
-                        ),
-                      ],
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
-  }
-
-  Future<void> _moveSlot(
-    BuildContext context,
-    WidgetRef ref,
-    PlannerSlot slot,
-  ) async {
-    final monthStart = DateTime(date.year, date.month, 1);
-    final monthEnd = DateTime(date.year, date.month + 1, 0);
-
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: slot.slotDate,
-      firstDate: monthStart,
-      lastDate: monthEnd,
-      selectableDayPredicate: (d) => d.weekday != DateTime.friday,
-    );
-    if (picked == null) return;
-
-    final iso =
-        '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-    try {
-      await ref.read(plannerRepositoryProvider).updateSlot(
-            planId: planId,
-            slotId: slot.id,
-            slotDate: iso,
-            isLocked: true,
-          );
-      ref.invalidate(plannerPlanProvider);
-      if (context.mounted) Navigator.of(context).pop();
-    } on ApiException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    }
   }
 
   static const _weekdayShort = [
