@@ -136,65 +136,62 @@ class SlotChip extends StatelessWidget {
   }
 
   /// Single-client layout: large type label centred, badges on the right.
+  /// Uses a Stack so the label is positioned against the chip's full width
+  /// (a Row+mirror approach pulled the label visually right because the
+  /// invisible spacer's bounds don't always match the visible cluster's).
   Widget _singleClientLayout({
     required Color typeColor,
     required String typeLabel,
     required String initials,
   }) {
-    return Row(
-      children: [
-        // Right-side badges are mirrored as an invisible spacer on the left
-        // so the centred label is actually centred and not nudged off by
-        // the trailing icons.
-        Opacity(
-          opacity: 0,
-          child: _trailingCluster(initials),
-        ),
-        Expanded(
-          child: Center(
-            child: Text(
-              typeLabel,
-              style: TextStyle(
-                fontSize: dense ? 13 : 16,
-                fontWeight: FontWeight.w800,
-                color: typeColor,
-                letterSpacing: 0.4,
-                decoration:
-                    slot.isCancelled ? TextDecoration.lineThrough : null,
-                height: 1.1,
-              ),
+    return SizedBox(
+      height: dense ? 22 : 26,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Text(
+            typeLabel,
+            style: TextStyle(
+              fontSize: dense ? 13 : 16,
+              fontWeight: FontWeight.w800,
+              color: typeColor,
+              letterSpacing: 0.4,
+              decoration:
+                  slot.isCancelled ? TextDecoration.lineThrough : null,
+              height: 1.1,
             ),
           ),
-        ),
-        _trailingCluster(initials),
-      ],
-    );
-  }
-
-  Widget _trailingCluster(String initials) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (slot.isLocked)
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Icon(
-              Icons.lock,
-              size: dense ? 11 : 13,
-              color: AppTheme.slate500,
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (slot.isLocked)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      Icons.lock,
+                      size: dense ? 11 : 13,
+                      color: AppTheme.slate500,
+                    ),
+                  ),
+                if (slot.isCompleted)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      Icons.check_circle,
+                      size: dense ? 11 : 13,
+                      color: AppTheme.success,
+                    ),
+                  ),
+                _initialsTag(initials),
+              ],
             ),
           ),
-        if (slot.isCompleted)
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Icon(
-              Icons.check_circle,
-              size: dense ? 11 : 13,
-              color: AppTheme.success,
-            ),
-          ),
-        _initialsTag(initials),
-      ],
+        ],
+      ),
     );
   }
 
