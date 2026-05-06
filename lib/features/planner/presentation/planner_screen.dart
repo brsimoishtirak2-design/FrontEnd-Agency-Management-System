@@ -267,13 +267,21 @@ class _PlanContent extends ConsumerStatefulWidget {
 
 class _PlanContentState extends ConsumerState<_PlanContent> {
   DateTime? _expandedDate;
+  bool _isDraggingFromPanel = false;
 
   void _expandDay(DateTime date) {
     setState(() => _expandedDate = date);
   }
 
   void _closeExpander() {
-    setState(() => _expandedDate = null);
+    setState(() {
+      _expandedDate = null;
+      _isDraggingFromPanel = false;
+    });
+  }
+
+  void _onPanelDragStateChange(bool dragging) {
+    setState(() => _isDraggingFromPanel = dragging);
   }
 
   @override
@@ -342,22 +350,25 @@ class _PlanContentState extends ConsumerState<_PlanContent> {
                 ),
               ),
               if (_expandedDate != null)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 560),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: _DayExpanderPanel(
-                          date: _expandedDate!,
-                          slots: expandedSlots,
-                          planId: plan.id,
-                          isAdmin: widget.isAdmin,
-                          onClose: _closeExpander,
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: _isDraggingFromPanel,
+                    child: Opacity(
+                      opacity: _isDraggingFromPanel ? 0.0 : 1.0,
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 560),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: _DayExpanderPanel(
+                              date: _expandedDate!,
+                              slots: expandedSlots,
+                              planId: plan.id,
+                              isAdmin: widget.isAdmin,
+                              onClose: _closeExpander,
+                              onDragStateChange: _onPanelDragStateChange,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -639,6 +650,7 @@ class _DayExpanderPanel extends ConsumerWidget {
   final int planId;
   final bool isAdmin;
   final VoidCallback onClose;
+  final ValueChanged<bool>? onDragStateChange;
 
   const _DayExpanderPanel({
     required this.date,
@@ -646,6 +658,7 @@ class _DayExpanderPanel extends ConsumerWidget {
     required this.planId,
     required this.isAdmin,
     required this.onClose,
+    this.onDragStateChange,
   });
 
   @override
@@ -758,6 +771,10 @@ class _DayExpanderPanel extends ConsumerWidget {
                         return LongPressDraggable<PlannerSlot>(
                           data: s,
                           delay: const Duration(milliseconds: 200),
+                          onDragStarted: () =>
+                              onDragStateChange?.call(true),
+                          onDragEnd: (_) =>
+                              onDragStateChange?.call(false),
                           feedback: Material(
                             color: Colors.transparent,
                             child: ConstrainedBox(
@@ -777,10 +794,7 @@ class _DayExpanderPanel extends ConsumerWidget {
                               ),
                             ),
                           ),
-                          childWhenDragging: Opacity(
-                            opacity: 0.3,
-                            child: chip,
-                          ),
+                          childWhenDragging: const SizedBox.shrink(),
                           child: chip,
                         );
                       },
