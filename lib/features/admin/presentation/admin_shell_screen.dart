@@ -8,6 +8,7 @@ import '../../../shared/widgets/notifications_bell_button.dart';
 import '../../../shared/widgets/profile_avatar_button.dart';
 import '../../../shared/widgets/search_app_bar.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../planner/presentation/planner_screen.dart';
 import '../data/admin_tasks_providers.dart';
 import 'admin_clients_screen.dart';
 import 'admin_employees_screen.dart';
@@ -37,6 +38,7 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
 
   static const _tabs = <Widget>[
     AdminTasksScreen(),
+    PlannerScreen(),
     AdminClientsScreen(),
     AdminEmployeesScreen(),
     AdminSettingsScreen(),
@@ -44,6 +46,7 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
 
   static const _titles = <String>[
     'Tasks',
+    'Schedule',
     'Clients',
     'Employees',
     'Settings',
@@ -115,6 +118,12 @@ class _AdminShellScreenState extends ConsumerState<AdminShellScreen> {
             selectedIcon:
                 Icon(Icons.task_alt, color: AppTheme.brandPrimaryDark),
             label: 'Tasks',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined, color: AppTheme.slate500),
+            selectedIcon:
+                Icon(Icons.calendar_month, color: AppTheme.brandPrimaryDark),
+            label: 'Schedule',
           ),
           NavigationDestination(
             icon: Icon(Icons.business_outlined, color: AppTheme.slate500),

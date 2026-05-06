@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/notifications_bell_button.dart';
 import '../../auth/data/auth_providers.dart';
+import '../../planner/presentation/planner_screen.dart';
 import 'employee_profile_screen.dart';
 import 'home_screen.dart';
 
@@ -27,6 +28,7 @@ class _EmployeeShellScreenState extends ConsumerState<EmployeeShellScreen> {
 
   static const _tabs = <Widget>[
     HomeScreen(),
+    PlannerScreen(),
     EmployeeProfileScreen(),
   ];
 
@@ -39,11 +41,7 @@ class _EmployeeShellScreenState extends ConsumerState<EmployeeShellScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _currentIndex == 0
-              ? (firstName.isEmpty ? 'My Tasks' : 'Hi, $firstName')
-              : 'Profile',
-        ),
+        title: Text(_titleFor(_currentIndex, firstName)),
         actions: const [NotificationsBellButton()],
       ),
       body: IndexedStack(
@@ -63,6 +61,12 @@ class _EmployeeShellScreenState extends ConsumerState<EmployeeShellScreen> {
             label: 'Tasks',
           ),
           NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined, color: AppTheme.slate500),
+            selectedIcon:
+                Icon(Icons.calendar_month, color: AppTheme.brandPrimaryDark),
+            label: 'Schedule',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.person_outline, color: AppTheme.slate500),
             selectedIcon:
                 Icon(Icons.person, color: AppTheme.brandPrimaryDark),
@@ -71,5 +75,18 @@ class _EmployeeShellScreenState extends ConsumerState<EmployeeShellScreen> {
         ],
       ),
     );
+  }
+
+  String _titleFor(int index, String firstName) {
+    switch (index) {
+      case 0:
+        return firstName.isEmpty ? 'My Tasks' : 'Hi, $firstName';
+      case 1:
+        return 'Schedule';
+      case 2:
+        return 'Profile';
+      default:
+        return '';
+    }
   }
 }

@@ -53,6 +53,10 @@ dependencies:
   skeletonizer: ^2.1.3
   flutter_animate: ^4.5.2
 
+  # Content Planner — landscape PDF export (cross-platform)
+  pdf: ^3.11.4
+  printing: ^5.14.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

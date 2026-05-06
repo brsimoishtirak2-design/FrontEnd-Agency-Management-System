@@ -1,0 +1,359 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/models/planner_slot.dart';
+import 'slot_chip.dart';
+
+/// Landscape calendar grid for one month.
+///
+/// Columns: Sat, Sun, Mon, Tue, Wed, Thu, Fri (Friday rendered grayed-out
+/// since it's the agency day off). Each cell shows the date number plus a
+/// stack of [SlotChip]s for that day.
+///
+/// The grid is horizontally scrollable when its natural width exceeds the
+/// viewport (so it remains readable on phones in portrait too).
+class MonthCalendarGrid extends StatelessWidget {
+  final int year;
+  final int month;
+  final List<PlannerSlot> slots;
+  final void Function(PlannerSlot slot)? onSlotTap;
+  final void Function(DateTime date)? onEmptyDayTap;
+  final int? highlightUserId;
+
+  const MonthCalendarGrid({
+    super.key,
+    required this.year,
+    required this.month,
+    required this.slots,
+    this.onSlotTap,
+    this.onEmptyDayTap,
+    this.highlightUserId,
+  });
+
+  static const double _minCellWidth = 130;
+  static const double _minCellHeight = 110;
+
+  @override
+  Widget build(BuildContext context) {
+    final daysInMonth = DateUtils.getDaysInMonth(year, month);
+    final firstOfMonth = DateTime(year, month, 1);
+
+    // Map slots by date for quick lookup
+    final slotsByDate = <int, List<PlannerSlot>>{};
+    for (final s in slots) {
+      if (s.slotDate.year == year && s.slotDate.month == month) {
+        slotsByDate.putIfAbsent(s.slotDate.day, () => []).add(s);
+      }
+    }
+
+    // Calculate weekday-of-first in our Sat-first scheme
+    // Dart: DateTime.weekday → Mon=1 .. Sun=7. We want Sat=0, Sun=1, Mon=2, Tue=3, Wed=4, Thu=5, Fri=6.
+    final dartWd = firstOfMonth.weekday;
+    final saturdayFirstIdx = _toSaturdayFirst(dartWd);
+
+    final cells = <_DayCell>[];
+    for (var i = 0; i < saturdayFirstIdx; i++) {
+      cells.add(const _DayCell.blank());
+    }
+    for (var d = 1; d <= daysInMonth; d++) {
+      final date = DateTime(year, month, d);
+      final isFriday = date.weekday == DateTime.friday;
+      cells.add(_DayCell(
+        date: date,
+        slots: slotsByDate[d] ?? const [],
+        isFriday: isFriday,
+      ));
+    }
+    while (cells.length % 7 != 0) {
+      cells.add(const _DayCell.blank());
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final naturalWidth = _minCellWidth * 7;
+        final useWidth =
+            constraints.maxWidth > naturalWidth ? constraints.maxWidth : naturalWidth;
+        final cellWidth = useWidth / 7;
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: useWidth,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _WeekdayHeader(cellWidth: cellWidth),
+                const Divider(height: 1, thickness: 1, color: AppTheme.slate200),
+                _GridBody(
+                  cells: cells,
+                  cellWidth: cellWidth,
+                  cellHeight: _minCellHeight,
+                  onSlotTap: onSlotTap,
+                  onEmptyDayTap: onEmptyDayTap,
+                  highlightUserId: highlightUserId,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Convert Dart weekday (Mon=1..Sun=7) to Saturday-first index (Sat=0..Fri=6).
+  int _toSaturdayFirst(int dartWd) {
+    // Sat=6 → 0, Sun=7 → 1, Mon=1 → 2, Tue=2 → 3, Wed=3 → 4, Thu=4 → 5, Fri=5 → 6
+    switch (dartWd) {
+      case DateTime.saturday:
+        return 0;
+      case DateTime.sunday:
+        return 1;
+      case DateTime.monday:
+        return 2;
+      case DateTime.tuesday:
+        return 3;
+      case DateTime.wednesday:
+        return 4;
+      case DateTime.thursday:
+        return 5;
+      case DateTime.friday:
+        return 6;
+    }
+    return 0;
+  }
+}
+
+class _WeekdayHeader extends StatelessWidget {
+  final double cellWidth;
+  const _WeekdayHeader({required this.cellWidth});
+
+  static const _labels = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: _labels.map((label) {
+        final isFri = label == 'Fri';
+        return SizedBox(
+          width: cellWidth,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: isFri ? AppTheme.slate300 : AppTheme.slate700,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _GridBody extends StatelessWidget {
+  final List<_DayCell> cells;
+  final double cellWidth;
+  final double cellHeight;
+  final void Function(PlannerSlot slot)? onSlotTap;
+  final void Function(DateTime date)? onEmptyDayTap;
+  final int? highlightUserId;
+
+  const _GridBody({
+    required this.cells,
+    required this.cellWidth,
+    required this.cellHeight,
+    required this.onSlotTap,
+    required this.onEmptyDayTap,
+    required this.highlightUserId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final rowCount = cells.length ~/ 7;
+    return Column(
+      children: List.generate(rowCount, (rowIdx) {
+        return Row(
+          children: List.generate(7, (col) {
+            final cell = cells[rowIdx * 7 + col];
+            return SizedBox(
+              width: cellWidth,
+              height: cellHeight,
+              child: _DayCellWidget(
+                cell: cell,
+                onSlotTap: onSlotTap,
+                onEmptyDayTap: onEmptyDayTap,
+                highlightUserId: highlightUserId,
+              ),
+            );
+          }),
+        );
+      }),
+    );
+  }
+}
+
+class _DayCell {
+  final DateTime? date;
+  final List<PlannerSlot> slots;
+  final bool isFriday;
+
+  const _DayCell({
+    required this.date,
+    required this.slots,
+    required this.isFriday,
+  });
+
+  const _DayCell.blank()
+      : date = null,
+        slots = const [],
+        isFriday = false;
+
+  bool get isBlank => date == null;
+}
+
+class _DayCellWidget extends StatelessWidget {
+  final _DayCell cell;
+  final void Function(PlannerSlot slot)? onSlotTap;
+  final void Function(DateTime date)? onEmptyDayTap;
+  final int? highlightUserId;
+
+  const _DayCellWidget({
+    required this.cell,
+    required this.onSlotTap,
+    required this.onEmptyDayTap,
+    required this.highlightUserId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (cell.isBlank) {
+      return Container(
+        decoration: const BoxDecoration(
+          border: Border(
+            right: BorderSide(color: AppTheme.slate100, width: 1),
+            bottom: BorderSide(color: AppTheme.slate100, width: 1),
+          ),
+          color: AppTheme.slate50,
+        ),
+      );
+    }
+
+    final date = cell.date!;
+    final isToday = _isToday(date);
+
+    return InkWell(
+      onTap: cell.isFriday
+          ? null
+          : () => onEmptyDayTap?.call(date),
+      child: Container(
+        decoration: BoxDecoration(
+          color: cell.isFriday ? AppTheme.slate50 : Colors.white,
+          border: const Border(
+            right: BorderSide(color: AppTheme.slate100, width: 1),
+            bottom: BorderSide(color: AppTheme.slate100, width: 1),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isToday
+                          ? AppTheme.brandPrimary
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      DateFormat('d').format(date),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: isToday
+                            ? Colors.white
+                            : (cell.isFriday
+                                ? AppTheme.slate300
+                                : AppTheme.slate700),
+                      ),
+                    ),
+                  ),
+                  if (cell.slots.isNotEmpty)
+                    Text(
+                      '${cell.slots.length}',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.slate500,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Expanded(
+                child: cell.isFriday
+                    ? Center(
+                        child: Text(
+                          'OFF',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.slate300,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: EdgeInsets.zero,
+                        physics: const ClampingScrollPhysics(),
+                        itemCount: cell.slots.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 2),
+                        itemBuilder: (_, idx) {
+                          final s = cell.slots[idx];
+                          final isMine = highlightUserId != null &&
+                              s.assignedUserId == highlightUserId;
+                          return Container(
+                            decoration: isMine
+                                ? BoxDecoration(
+                                    borderRadius: BorderRadius.circular(7),
+                                    border: Border.all(
+                                      color: AppTheme.brandPrimary,
+                                      width: 1.5,
+                                    ),
+                                  )
+                                : null,
+                            padding: isMine ? const EdgeInsets.all(1) : null,
+                            child: SlotChip(
+                              slot: s,
+                              dense: true,
+                              onTap: () => onSlotTap?.call(s),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _isToday(DateTime d) {
+    final now = DateTime.now();
+    return d.year == now.year && d.month == now.month && d.day == now.day;
+  }
+}
